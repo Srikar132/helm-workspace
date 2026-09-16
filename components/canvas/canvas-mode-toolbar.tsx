@@ -1,10 +1,14 @@
 "use client";
 
 import { useReactFlow, useViewport } from "@xyflow/react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Eraser,
   Hand,
   Highlighter,
+  House,
+  LocateIcon,
+  MapPin,
   Maximize2,
   Minus,
   MousePointer2,
@@ -12,10 +16,14 @@ import {
   Plus,
   RotateCcw,
   RotateCw,
+  Search,
   Sparkles,
 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useCanvasMode } from "@/components/canvas/canvas-mode-context";
+import { listLandmarks } from "@/lib/actions/landmarks";
 
 const COLORS = [
   { label: "Yellow", value: "#f7ce15" },
@@ -34,7 +42,14 @@ const SIZES = [
   { label: "L", value: 12 },
 ];
 
-export function CanvasModeToolbar() {
+interface CanvasModeToolbarProps {
+  addWidgetAtViewportCenter: (type: string) => void;
+  /** Smoothly pans/zooms the canvas onto a landmark's widget. Returns false
+   *  when no widget for that landmark exists (e.g. deleted in another tab). */
+  flyToLandmark: (landmarkId: string, duration?: number) => boolean;
+}
+
+export function CanvasModeToolbar({ addWidgetAtViewportCenter, flyToLandmark }: CanvasModeToolbarProps) {
   const {
     mode,
     setMode,
@@ -50,6 +65,29 @@ export function CanvasModeToolbar() {
     redoDraw,
   } = useCanvasMode();
 
+  const [landmarksOpen, setLandmarksOpen] = useState(false);
+  const [landmarkQuery, setLandmarkQuery] = useState("");
+
+  const { data: landmarks = [] } = useQuery({
+    queryKey: ["landmarks"],
+    queryFn: listLandmarks,
+    // Cheap single-index query — only pay it while the panel is actually open.
+    enabled: landmarksOpen,
+  });
+
+  const filteredLandmarks = useMemo(() => {
+    const q = landmarkQuery.trim().toLowerCase();
+    if (!q) return landmarks;
+    return landmarks.filter((l) => l.name.toLowerCase().includes(q) || l.slug.includes(q));
+  }, [landmarks, landmarkQuery]);
+
+  function handleLandmarkClick(id: string) {
+    if (flyToLandmark(id, 600)) {
+      setLandmarksOpen(false);
+      setLandmarkQuery("");
+    }
+  }
+
   const { zoomIn, zoomOut, fitView, setViewport } = useReactFlow();
   const viewport = useViewport();
   const zoomPercentage = Math.round(viewport.zoom * 100);
@@ -58,6 +96,65 @@ export function CanvasModeToolbar() {
 
   return (
     <div className="pointer-events-none fixed bottom-3 left-2 right-2 sm:left-4 sm:right-auto z-30 flex flex-col gap-1.5 items-start max-w-[calc(100vw-1rem)]">
+      {/* Landmark search — jumps the view to a saved spot */}
+      {landmarksOpen && (
+        <div className="pointer-events-auto flex max-h-[min(320px,50vh)] w-[280px] flex-col overflow-hidden rounded-[14px] border border-white/10 bg-zinc-900/95 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <div className="relative shrink-0 border-b border-white/[0.06] p-2">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9aa0a6]" />
+            <Input
+              value={landmarkQuery}
+              onChange={(e) => setLandmarkQuery(e.target.value)}
+              placeholder="Search landmarks…"
+              autoFocus
+              className="nodrag rounded-xl border-white/10 bg-white/[0.04] pl-8 text-[12.5px] text-[#e8eaed] placeholder:text-[#5f6368]"
+            />
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-1">
+            {filteredLandmarks.length === 0 ? (
+              <p className="px-3 py-4 text-center text-[11.5px] text-[#9aa0a6]">
+                {landmarks.length === 0 ? "No landmarks yet." : "No matches."}
+              </p>
+            ) : (
+              filteredLandmarks.map((l) => (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => handleLandmarkClick(l.id)}
+                  className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-white/[0.06]"
+                >
+                  <MapPin className="h-4 w-4 shrink-0" style={{ color: l.color }} fill={l.color} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate text-[12.5px] font-medium text-[#e8eaed]">{l.name}</span>
+                      {l.default && (
+                        <span title="Opens here by default" className="shrink-0 text-amber-400">
+                          <House className="h-3 w-3" strokeWidth={2.5} />
+                        </span>
+                      )}
+                    </span>
+                    <span className="block truncate text-[10.5px] text-[#9aa0a6]">{l.slug}</span>
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+          <div className="shrink-0 border-t border-white/[0.06] p-1.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setLandmarksOpen(false);
+                addWidgetAtViewportCenter("landmark");
+              }}
+              className="w-full justify-start gap-2 text-[12px] text-[#e8eaed]"
+            >
+              <Plus className="h-3.5 w-3.5" /> New landmark here
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Floating Property Bar (Colors & Sizes) */}
       {showColors && (
         <div className="pointer-events-auto flex max-w-full items-center gap-2.5 overflow-x-auto scrollbar-none rounded-[12px] border border-white/10 bg-zinc-900/95 px-2.5 py-1.5 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-150">
@@ -69,11 +166,10 @@ export function CanvasModeToolbar() {
                 type="button"
                 title={c.label}
                 onClick={() => setStrokeColor(c.value)}
-                className={`h-4.5 w-4.5 rounded-full border transition-all cursor-pointer ${
-                  strokeColor === c.value
-                    ? "scale-110 border-white ring-2 ring-white/50"
-                    : "border-white/10 opacity-75 hover:opacity-100 hover:scale-105"
-                }`}
+                className={`h-4.5 w-4.5 rounded-full border transition-all cursor-pointer ${strokeColor === c.value
+                  ? "scale-110 border-white ring-2 ring-white/50"
+                  : "border-white/10 opacity-75 hover:opacity-100 hover:scale-105"
+                  }`}
                 style={{ backgroundColor: c.value }}
               />
             ))}
@@ -270,6 +366,23 @@ export function CanvasModeToolbar() {
             onClick={() => fitView({ padding: 0.15 })}
           >
             <Maximize2 className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="h-4 w-[1px] bg-white/10 shrink-0" />
+
+        {/* Section 5: Landmark Control */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Button
+            type="button"
+            title="Landmarks"
+            aria-label="Landmarks"
+            variant={landmarksOpen ? "secondary" : "ghost"}
+            size="icon-sm"
+            shape="rounded"
+            onClick={() => setLandmarksOpen((open) => !open)}
+          >
+            <LocateIcon className="h-4 w-4" />
           </Button>
         </div>
       </div>

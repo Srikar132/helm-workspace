@@ -9,7 +9,7 @@ import type { AlbumPreview } from "@/lib/actions/albums";
 import type { FileLibraryPreview } from "@/lib/actions/files";
 import type { GmailStatus } from "@/lib/actions/gmail";
 import type { GmailMessageSummary } from "@/lib/gmail";
-
+import { Landmark } from "@/lib/actions/landmarks";
 // react-flow + dnd-kit + every widget component (Tiptap included, via
 // widget-node.tsx's static imports) all hang off this one import — code-
 // splitting it keeps that whole bundle out of the initial route JS. No SSR:
@@ -30,6 +30,9 @@ interface WorkspaceDashboardProps {
   initialLibraryPreviews: Record<string, FileLibraryPreview>;
   initialGmailStatus: GmailStatus;
   initialGmailMessages?: GmailMessageSummary[];
+  initialLandmarks: Record<string, Landmark>;
+  /** The workspace's HOME landmark — the canvas opens centered on it. */
+  initialDefaultLandmark?: Landmark | null;
 }
 
 // The QueryClient itself lives at the root layout (app/providers.tsx) —
@@ -48,6 +51,8 @@ export function WorkspaceDashboard({
   initialLibraryPreviews,
   initialGmailStatus,
   initialGmailMessages,
+  initialLandmarks,
+  initialDefaultLandmark,
 }: WorkspaceDashboardProps) {
   return (
     <div className="relative h-dvh w-dvw overflow-hidden bg-[#1e1f20] text-[#e8eaed] font-sans">
@@ -61,6 +66,8 @@ export function WorkspaceDashboard({
         initialLibraryPreviews={initialLibraryPreviews}
         initialGmailStatus={initialGmailStatus}
         initialGmailMessages={initialGmailMessages}
+        initialLandmarks={initialLandmarks}
+        initialDefaultLandmark={initialDefaultLandmark}
       />
       <CanvasChrome />
     </div>

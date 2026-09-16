@@ -48,39 +48,30 @@ export const CATEGORIES = [
 ] as const;
 export type Category = (typeof CATEGORIES)[number];
 
-export const PROJECT_ACCENT_VAR: Record<Project, string> = {
-  Rafttaar: "var(--project-rafttaar)",
-  Creonex: "var(--project-creonex)",
-  BellCorps: "var(--project-bellcorps)",
-  Other: "var(--project-other)",
-};
-
-export const CATEGORY_ACCENT_VAR: Record<Category, string> = {
-  Code: "var(--category-code)",
-  Analysis: "var(--category-analysis)",
-  Meeting: "var(--category-meeting)",
-  Design: "var(--category-design)",
-  Debugging: "var(--category-debugging)",
-};
 
 export const MIN_SUMMARY_LENGTH = 10;
 
-const FILLER_SUMMARIES = new Set([
-  "worked on stuff",
-  "did stuff",
-  "did some work",
-  "general work",
-  "misc work",
-  "misc",
-  "stuff",
-  "nothing much",
-  "some work",
-  "worked",
-]);
 
 export function isFillerSummary(summary: string): boolean {
   const normalized = summary.trim().toLowerCase();
   return (
-    normalized.length < MIN_SUMMARY_LENGTH || FILLER_SUMMARIES.has(normalized)
+    normalized.length < MIN_SUMMARY_LENGTH
   );
 }
+
+/** Predefined pin colors — the only choices the landmark UI offers (draft form
+ *  swatches, right-click → Change colour), so every landmark stays on-palette.
+ *
+ *  Lives OUTSIDE lib/actions/landmarks.ts because a "use server" file may only
+ *  export async functions — both the server actions (colour validation) and
+ *  the client widgets (swatch rendering) need this list. */
+export const LANDMARK_COLORS = [
+  { label: "Red", value: "#EA4335" },
+  { label: "Blue", value: "#4285F4" },
+  { label: "Green", value: "#34A853" },
+  { label: "Yellow", value: "#FBBC04" },
+  { label: "Purple", value: "#A142F4" },
+  { label: "Orange", value: "#FF6D01" },
+  { label: "Teal", value: "#12B5CB" },
+  { label: "Pink", value: "#F42F71" },
+] as const;

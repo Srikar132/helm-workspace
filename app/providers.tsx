@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { useState } from "react";
+import NextTopLoader from "nextjs-toploader";
 import { Toaster } from "@/components/ui/toast";
 import { toastManager } from "@/lib/toast";
 
@@ -89,6 +90,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }}
     >
+      {/* Route-change progress bar — the blue of the logo mark, with a soft
+          glow so it reads as a highlight rather than a hard line. */}
+      <NextTopLoader
+        color="#4285F4"
+        height={3}
+        showSpinner={false}
+        crawl
+        crawlSpeed={200}
+        speed={300}
+        shadow="0 1px 6px rgba(66,133,244,0.55), 0 0 12px rgba(66,133,244,0.35)"
+        zIndex={1600}
+      />
       {children}
       <Toaster toastManager={toastManager} />
       {process.env.NODE_ENV === "development" && <ReactQueryDevtools initialIsOpen={false} />}

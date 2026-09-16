@@ -320,6 +320,34 @@ export const cloudinaryCleanupJobs = pgTable(
   (table) => [index("cloudinary_cleanup_jobs_status_idx").on(table.status, table.createdAt)],
 );
 
+export const landmarks = pgTable(
+  "landmarks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    // URL-safe identity within the workspace, recomputed from `name` on
+    // rename — unique PER WORKSPACE (two workspaces can each have "home"),
+    // unlike the old globally-unique mark_name.
+    slug: text("slug").notNull(),
+    default: boolean("default").notNull().default(false),
+    color: text("color").notNull().default("#ffffff"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("landmarks_organization_id_idx").on(table.organizationId),
+    index("landmarks_user_id_idx").on(table.userId),
+    uniqueIndex("landmarks_org_slug_unique").on(table.organizationId, table.slug),
+  ],
+);
+
+
 const sql = neon(process.env.DATABASE_URL || "postgres://placeholder:placeholder@localhost/placeholder");
 
 export const db = drizzle(sql, {
@@ -336,6 +364,7 @@ export const db = drizzle(sql, {
     fileFolders,
     libraryFiles,
     cloudinaryCleanupJobs,
+    landmarks,
     ...authSchema,
   },
 });

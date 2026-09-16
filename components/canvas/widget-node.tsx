@@ -24,6 +24,8 @@ import type { AlbumPreview } from "@/lib/actions/albums";
 import type { FileLibraryPreview } from "@/lib/actions/files";
 import type { GmailStatus } from "@/lib/actions/gmail";
 import type { GmailMessageSummary } from "@/lib/gmail";
+import type { Landmark } from "@/lib/actions/landmarks";
+import { LandmarkWidget } from "./landmark-widget";
 
 // Tiptap + its extensions (table, task-list, etc.) is the heaviest single
 // widget dependency and, unlike board/mail-summary, genuinely optional —
@@ -66,6 +68,8 @@ export type WidgetNodeData = {
   /** Server-prefetched — only populated for type "mail-summary". */
   initialGmailStatus?: GmailStatus;
   initialGmailMessages?: GmailMessageSummary[];
+  /** Only populated for type "landmarks". */
+  initialLandmark?: Landmark;
 };
 
 // Dispatches on the node's OWN live `data` prop rather than a closure baked
@@ -129,6 +133,17 @@ function renderWidgetBody(id: string, data: WidgetNodeData): React.ReactNode {
           slug={data.slug}
           canWrite={data.canWrite}
           initialSummary={data.initialSummary}
+        />
+      );
+    }
+    case "landmark": {
+      const landmarkId = data.widgetData?.landmarkId;
+      return (
+        <LandmarkWidget
+          id={id}
+          canWrite={data.canWrite}
+          initialLandmark={data.initialLandmark}
+          landmarkId={typeof landmarkId === "string" ? landmarkId : undefined}
         />
       );
     }
@@ -234,6 +249,13 @@ export function WidgetNode({ id, data, selected }: NodeProps) {
       ? undefined
       : (widgetData.widgetData?.bgColor as string | undefined);
 
+  // Landmarks are pins standing ON the canvas, not cards sitting on it — no
+  // shell background, border or selection rectangle around mostly-empty space.
+  // The functional chrome (drag gating, cursors, pointer-events) still applies;
+  // only the visual card treatment is skipped. The draft form paints its own
+  // containment while it exists.
+  const chromeless = widgetData.widgetType === "landmark";
+
   if (widgetData.widgetType === "draw") {
     return <DrawWidget id={id} canWrite={widgetData.canWrite} widgetData={widgetData.widgetData} />;
   }
@@ -253,8 +275,8 @@ export function WidgetNode({ id, data, selected }: NodeProps) {
       }}
     >
       <div
-        style={{ ...(minHeight ? { minHeight } : undefined), ...(cardBg ? { backgroundColor: cardBg } : undefined) }}
-        className={`widget-card-shell h-full w-full touch-manipulation overflow-hidden transition-all ${widgetChromeClassName(chrome, phase)}`}
+        style={{ ...(minHeight && !chromeless ? { minHeight } : undefined), ...(cardBg ? { backgroundColor: cardBg } : undefined) }}
+        className={`h-full w-full touch-manipulation ${chromeless ? "" : "widget-card-shell overflow-hidden transition-all"} ${widgetChromeClassName(chrome, chromeless ? "idle" : phase)}`}
       >
         <WidgetChromeProvider value={{ editing, enterPoint, setFloatingToolbar }}>
           {renderWidgetBody(id, widgetData)}

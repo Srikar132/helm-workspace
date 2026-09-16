@@ -10,6 +10,7 @@ import { getDocProjectsByIds } from "@/lib/actions/docs";
 import { getAlbumPreviewsByIds } from "@/lib/actions/albums";
 import { getFileLibraryPreviewsByIds } from "@/lib/actions/files";
 import { getGmailStatus, getTodayMessages } from "@/lib/actions/gmail";
+import { getLandmarksByIds, getDefaultLandmark } from "@/lib/actions/landmarks";
 
 export const dynamic = "force-dynamic";
 
@@ -62,19 +63,34 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
     .filter((item) => item.type === "gallery")
     .map((item) => (item.data as { albumId?: unknown } | undefined)?.albumId)
     .filter((id): id is string => typeof id === "string");
+  const initialLandmarksIds = initialLayout
+    .filter((item) => item.type === "landmark")
+    .map((item) => (item.data as { landmarkId?: unknown } | undefined)?.landmarkId)
+    .filter((id): id is string => typeof id === "string");
 
   const libraryIds = initialLayout
     .filter((item) => item.type === "files")
     .map((item) => (item.data as { libraryId?: unknown } | undefined)?.libraryId)
     .filter((id): id is string => typeof id === "string");
 
-  const [initialProjectSummaries, initialAlbumPreviews, initialLibraryPreviews, initialGmailStatus] =
-    await Promise.all([
-      getDocProjectsByIds(projectDocIds),
-      getAlbumPreviewsByIds(albumIds),
-      getFileLibraryPreviewsByIds(libraryIds),
-      getGmailStatus(),
-    ]);
+  // The HOME landmark rides along in the same wave — one extra indexed query
+  // buys "canvas opens at the workspace's front door" with zero client-side
+  // fetching.
+  const [
+    initialProjectSummaries,
+    initialAlbumPreviews,
+    initialLibraryPreviews,
+    initialLandmarks,
+    initialGmailStatus,
+    initialDefaultLandmark,
+  ] = await Promise.all([
+    getDocProjectsByIds(projectDocIds),
+    getAlbumPreviewsByIds(albumIds),
+    getFileLibraryPreviewsByIds(libraryIds),
+    getLandmarksByIds(initialLandmarksIds),
+    getGmailStatus(),
+    getDefaultLandmark(),
+  ]);
 
   // Only known once we have the status above, so this can't join wave 2.
   const initialGmailMessages = initialGmailStatus.connected
@@ -92,6 +108,8 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
       initialLibraryPreviews={initialLibraryPreviews}
       initialGmailStatus={initialGmailStatus}
       initialGmailMessages={initialGmailMessages}
+      initialLandmarks={initialLandmarks}
+      initialDefaultLandmark={initialDefaultLandmark}
     />
   );
 }
