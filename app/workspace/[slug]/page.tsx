@@ -8,6 +8,7 @@ import { requireViewerContext } from "@/lib/workspace";
 import { getMyWidgetLayout } from "@/lib/actions/widgets";
 import { getDocProjectsByIds } from "@/lib/actions/docs";
 import { getAlbumPreviewsByIds } from "@/lib/actions/albums";
+import { getFileLibraryPreviewsByIds } from "@/lib/actions/files";
 import { getGmailStatus, getTodayMessages } from "@/lib/actions/gmail";
 
 export const dynamic = "force-dynamic";
@@ -62,11 +63,18 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
     .map((item) => (item.data as { albumId?: unknown } | undefined)?.albumId)
     .filter((id): id is string => typeof id === "string");
 
-  const [initialProjectSummaries, initialAlbumPreviews, initialGmailStatus] = await Promise.all([
-    getDocProjectsByIds(projectDocIds),
-    getAlbumPreviewsByIds(albumIds),
-    getGmailStatus(),
-  ]);
+  const libraryIds = initialLayout
+    .filter((item) => item.type === "files")
+    .map((item) => (item.data as { libraryId?: unknown } | undefined)?.libraryId)
+    .filter((id): id is string => typeof id === "string");
+
+  const [initialProjectSummaries, initialAlbumPreviews, initialLibraryPreviews, initialGmailStatus] =
+    await Promise.all([
+      getDocProjectsByIds(projectDocIds),
+      getAlbumPreviewsByIds(albumIds),
+      getFileLibraryPreviewsByIds(libraryIds),
+      getGmailStatus(),
+    ]);
 
   // Only known once we have the status above, so this can't join wave 2.
   const initialGmailMessages = initialGmailStatus.connected
@@ -81,6 +89,7 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
       initialLayout={initialLayout}
       initialProjectSummaries={initialProjectSummaries}
       initialAlbumPreviews={initialAlbumPreviews}
+      initialLibraryPreviews={initialLibraryPreviews}
       initialGmailStatus={initialGmailStatus}
       initialGmailMessages={initialGmailMessages}
     />

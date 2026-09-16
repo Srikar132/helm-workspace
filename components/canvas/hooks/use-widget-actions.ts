@@ -5,6 +5,7 @@ import { AUTO_HEIGHT_MIN, NEW_WIDGET_DEFAULTS, buildNode, type WidgetNodeContext
 import { WIDGET_SAVE_RETRY, type SaveStatus } from "@/components/canvas/hooks/use-save-status";
 import { createWidgetAction, deleteWidgetAction, updateWidgetDataAction, updateWidgetSizeAction } from "@/lib/actions/widgets";
 import { unwrapAction } from "@/lib/query-utils";
+import { isDocumentFile } from "@/lib/canvas/document-file";
 import { toPlainJson } from "@/lib/utils";
 import type { WidgetLayoutItem } from "@/lib/db";
 
@@ -201,11 +202,14 @@ export function useWidgetActions({ ctx, setNodes, saveStatus }: UseWidgetActions
 
   // A pasted/dropped file becomes its own widget immediately (status:
   // "uploading"), with the File registered in `pendingFiles` under that
-  // same id so MediaWidget can pick it up and start the real upload itself.
-  const addMediaFiles = useCallback(
+  // same id so the widget can pick it up and start the real upload itself.
+  // Which widget type it becomes is decided by the file: images and video
+  // render inline (media), PDFs and Word files are documents.
+  const addFiles = useCallback(
     (files: File[], dropPoint: { x: number; y: number }) => {
       files.forEach((file, i) => {
-        const id = addWidget("media", { x: dropPoint.x + i * 32, y: dropPoint.y + i * 32 });
+        const type = isDocumentFile(file) ? "document" : "media";
+        const id = addWidget(type, { x: dropPoint.x + i * 32, y: dropPoint.y + i * 32 }, { status: "uploading" });
         pendingFiles.current.set(id, file);
       });
     },
@@ -219,7 +223,7 @@ export function useWidgetActions({ ctx, setNodes, saveStatus }: UseWidgetActions
     setWidgetDraggable,
     setWidgetSelected,
     addWidget,
-    addMediaFiles,
+    addFiles,
     getPendingFile,
     clearPendingFile,
   };

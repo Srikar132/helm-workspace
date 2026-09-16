@@ -4,6 +4,7 @@ import type { WidgetLayoutItem } from "@/lib/db";
 import type { BoardColumn } from "@/lib/worklog";
 import type { DocProjectSummary } from "@/lib/actions/docs";
 import type { AlbumPreview } from "@/lib/actions/albums";
+import type { FileLibraryPreview } from "@/lib/actions/files";
 import type { GmailStatus } from "@/lib/actions/gmail";
 import type { GmailMessageSummary } from "@/lib/gmail";
 
@@ -13,12 +14,14 @@ import type { GmailMessageSummary } from "@/lib/gmail";
  * canvas-shell.tsx's component body.
  */
 
-export const MULTI_INSTANCE_WIDGET_TYPES = new Set(["bookmark", "code", "draw", "gallery", "markdown", "media", "project-doc"]);
+export const MULTI_INSTANCE_WIDGET_TYPES = new Set(["bookmark", "code", "document", "draw", "files", "gallery", "markdown", "media", "project-doc"]);
 export const KNOWN_WIDGET_TYPES = new Set([
   "board",
   "bookmark",
   "code",
+  "document",
   "draw",
+  "files",
   "gallery",
   "mail-summary",
   "markdown",
@@ -33,7 +36,7 @@ export const NON_RESIZABLE_WIDGET_TYPES = new Set(["board", "mail-summary", "boo
 // Bookmark has no entry here — its content (icon + title + url) already has
 // a fixed minimum height on its own, so a floor on top of that just leaves
 // dead space below a card with no description.
-export const AUTO_HEIGHT_MIN: Record<string, number> = { markdown: 240, "project-doc": 200, gallery: 200 };
+export const AUTO_HEIGHT_MIN: Record<string, number> = { markdown: 240, "project-doc": 200, gallery: 200, document: 180, files: 220 };
 // Widgets that own a text caret. These are the only ones with an `editing`
 // phase, because they're the only ones where a drag is ambiguous: inside text
 // it must select characters, on the card it must reposition. Every other
@@ -80,6 +83,12 @@ export const NEW_WIDGET_DEFAULTS: Record<string, { width: number; height?: numbe
   // Height omitted — the card grows by one line once a generated exercise gives
   // it a title, and nothing about it scrolls.
   code: { width: 320 },
+  // Height omitted — the picker form is taller than the finished card (preview
+  // band + filename + size), same reasoning as bookmark/project-doc above.
+  document: { width: 340 },
+  // Height omitted — a name form and a filled-out preview card (cover +
+  // recent documents + footer) are different heights, same as gallery.
+  files: { width: 300 },
 };
 
 // Deliberately just plain data — no callbacks here. Mutation handlers
@@ -92,6 +101,7 @@ export type WidgetNodeContext = {
   slug: string;
   initialProjectSummaries: Record<string, DocProjectSummary>;
   initialAlbumPreviews: Record<string, AlbumPreview>;
+  initialLibraryPreviews: Record<string, FileLibraryPreview>;
   initialGmailStatus: GmailStatus;
   initialGmailMessages?: GmailMessageSummary[];
 };
@@ -136,6 +146,10 @@ export function widgetTitle(type: string): string {
       return "Bookmark";
     case "code":
       return "Code";
+    case "document":
+      return "Document";
+    case "files":
+      return "Files";
     case "gallery":
       return "Gallery";
     case "mail-summary":
@@ -164,7 +178,7 @@ export function widgetTitle(type: string): string {
  * Excluded on purpose: board, mail-summary and media want a fixed viewport with
  * their own internal scrolling, not a card that grows to the length of a list.
  */
-const CONTENT_HEIGHT_TYPES = new Set(["markdown", "project-doc", "bookmark", "code", "gallery"]);
+const CONTENT_HEIGHT_TYPES = new Set(["markdown", "project-doc", "bookmark", "code", "gallery", "document", "files"]);
 
 /**
  * A stored height is a FLOOR for these types, not a fixed size.
@@ -187,6 +201,7 @@ export function buildNode(item: WidgetLayoutItem, ctx: WidgetNodeContext): Node 
 
   const docProjectId = item.type === "project-doc" ? (item.data?.docProjectId as string | undefined) : undefined;
   const albumId = item.type === "gallery" ? (item.data?.albumId as string | undefined) : undefined;
+  const libraryId = item.type === "files" ? (item.data?.libraryId as string | undefined) : undefined;
 
   const data: WidgetNodeData = {
     title: widgetTitle(item.type),
@@ -201,6 +216,7 @@ export function buildNode(item: WidgetLayoutItem, ctx: WidgetNodeContext): Node 
     slug: ctx.slug,
     initialSummary: docProjectId ? ctx.initialProjectSummaries[docProjectId] : undefined,
     initialPreview: albumId ? ctx.initialAlbumPreviews[albumId] : undefined,
+    initialLibraryPreview: libraryId ? ctx.initialLibraryPreviews[libraryId] : undefined,
     initialGmailStatus: item.type === "mail-summary" ? ctx.initialGmailStatus : undefined,
     initialGmailMessages: item.type === "mail-summary" ? ctx.initialGmailMessages : undefined,
   };

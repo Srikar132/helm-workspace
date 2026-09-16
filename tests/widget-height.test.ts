@@ -9,6 +9,7 @@ const CTX: WidgetNodeContext = {
   slug: "desk",
   initialProjectSummaries: {},
   initialAlbumPreviews: {},
+  initialLibraryPreviews: {},
   initialGmailStatus: { connected: false },
 };
 
