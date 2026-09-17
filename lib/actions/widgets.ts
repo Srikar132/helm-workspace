@@ -1,8 +1,10 @@
 "use server";
 
+import { after } from "next/server";
 import { z } from "zod";
 import { and, count, eq } from "drizzle-orm";
 import { db, landmarks, widgets, type WidgetLayoutItem } from "@/lib/db";
+import { enqueueCloudinaryCleanup, runCleanupJobs } from "@/lib/cloudinary-cleanup";
 import { requireViewerContext } from "@/lib/workspace";
 import { mergeWithDefaults } from "@/components/canvas/widget-registry";
 import { canWriteWidgets } from "@/lib/permissions";
@@ -235,6 +237,17 @@ export async function deleteWidgetAction(id: string): Promise<{ error?: string }
     await db
       .delete(landmarks)
       .where(and(eq(landmarks.id, landmarkId), eq(landmarks.organizationId, viewer.organizationId)));
+  }
+
+  // A widget that owns an uploaded asset (a document today; anything else that
+  // uploads later) records its Cloudinary public id in its own data. Deleting
+  // only the row would leave the asset billable and reachable by URL forever,
+  // so it goes through the same durable job + immediate best-effort pass the
+  // album images use — the cron sweep is what actually guarantees delivery.
+  const publicId = (existing.data as { cloudinaryPublicId?: unknown } | null)?.cloudinaryPublicId;
+  if (typeof publicId === "string" && publicId) {
+    const jobs = await enqueueCloudinaryCleanup([publicId]);
+    after(() => runCleanupJobs(jobs));
   }
 
   return {};

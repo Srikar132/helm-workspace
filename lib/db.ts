@@ -228,6 +228,76 @@ export const albumImages = pgTable(
   ],
 );
 
+// Documents get the same organizing surface photos have (albums/groups/
+// images), rather than existing only as single canvas cards. Kept as its own
+// set of tables instead of a `type` column on the album tables: an album image
+// is a URL with dimensions, a library file is a URL with a size, a kind, and
+// the Cloudinary resource type it lives under — and every album query would
+// have had to start filtering by type forever.
+export const fileLibraries = pgTable(
+  "file_libraries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [index("file_libraries_organization_id_idx").on(table.organizationId)],
+);
+
+export const fileFolders = pgTable(
+  "file_folders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    libraryId: uuid("library_id")
+      .notNull()
+      .references(() => fileLibraries.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("file_folders_library_id_idx").on(table.libraryId)],
+);
+
+export const libraryFiles = pgTable(
+  "library_files",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    libraryId: uuid("library_id")
+      .notNull()
+      .references(() => fileLibraries.id, { onDelete: "cascade" }),
+    // Null = ungrouped — deleting a folder falls its documents back here
+    // rather than deleting them, same rule album groups follow.
+    folderId: uuid("folder_id").references(() => fileFolders.id, { onDelete: "set null" }),
+    url: text("url").notNull(),
+    // Needed to destroy the actual Cloudinary asset, not just this row.
+    cloudinaryPublicId: text("cloudinary_public_id"),
+    // Which Cloudinary resource type actually holds it: a PDF goes up as
+    // "image" (the only type Cloudinary will rasterise, which is where the
+    // page-1 thumbnail comes from), a Word file as "raw". Recorded so a delete
+    // is exact instead of leaning on the resource-type fallback in
+    // lib/cloudinary-cleanup.ts.
+    resourceType: text("resource_type").notNull().default("image"),
+    // "pdf" | "word" — drives the tile's icon and whether a click opens the
+    // viewer or downloads. Plain text on purpose, like entries.workType: the
+    // list lives in lib/canvas/document-file.ts, so a new kind is a code
+    // change rather than a migration.
+    kind: text("kind").notNull().default("pdf"),
+    name: text("name").notNull(),
+    bytes: integer("bytes").notNull().default(0),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("library_files_library_id_created_at_idx").on(table.libraryId, table.createdAt),
+    index("library_files_library_id_folder_id_idx").on(table.libraryId, table.folderId),
+  ],
+);
+
 export const cloudinaryCleanupStatusEnum = pgEnum("cloudinary_cleanup_status", ["pending", "done", "failed"]);
 
 // Durable record of "this Cloudinary asset needs to be destroyed" — created
@@ -290,6 +360,9 @@ export const db = drizzle(sql, {
     albums,
     albumGroups,
     albumImages,
+    fileLibraries,
+    fileFolders,
+    libraryFiles,
     cloudinaryCleanupJobs,
     landmarks,
     ...authSchema,

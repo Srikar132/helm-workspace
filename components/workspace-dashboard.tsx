@@ -6,6 +6,7 @@ import type { BoardColumn } from "@/lib/worklog";
 import type { WidgetLayoutItem } from "@/lib/db";
 import type { DocProjectSummary } from "@/lib/actions/docs";
 import type { AlbumPreview } from "@/lib/actions/albums";
+import type { FileLibraryPreview } from "@/lib/actions/files";
 import type { GmailStatus } from "@/lib/actions/gmail";
 import type { GmailMessageSummary } from "@/lib/gmail";
 import { Landmark } from "@/lib/actions/landmarks";
@@ -26,6 +27,7 @@ interface WorkspaceDashboardProps {
   initialLayout: WidgetLayoutItem[];
   initialProjectSummaries: Record<string, DocProjectSummary>;
   initialAlbumPreviews: Record<string, AlbumPreview>;
+  initialLibraryPreviews: Record<string, FileLibraryPreview>;
   initialGmailStatus: GmailStatus;
   initialGmailMessages?: GmailMessageSummary[];
   initialLandmarks: Record<string, Landmark>;
@@ -46,6 +48,7 @@ export function WorkspaceDashboard({
   initialLayout,
   initialProjectSummaries,
   initialAlbumPreviews,
+  initialLibraryPreviews,
   initialGmailStatus,
   initialGmailMessages,
   initialLandmarks,
@@ -60,6 +63,7 @@ export function WorkspaceDashboard({
         canWrite={canWrite}
         initialProjectSummaries={initialProjectSummaries}
         initialAlbumPreviews={initialAlbumPreviews}
+        initialLibraryPreviews={initialLibraryPreviews}
         initialGmailStatus={initialGmailStatus}
         initialGmailMessages={initialGmailMessages}
         initialLandmarks={initialLandmarks}

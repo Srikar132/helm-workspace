@@ -11,7 +11,9 @@ import { isWidgetResizable } from "@/components/canvas/widget-registry";
 import { BoardWidget } from "@/components/canvas/board-widget";
 import { BookmarkWidget } from "@/components/canvas/bookmark-widget";
 import { CodeWidget } from "@/components/canvas/code-widget";
+import { DocumentWidget } from "@/components/canvas/document-widget";
 import { DrawWidget } from "@/components/canvas/draw-widget";
+import { FilesWidget } from "@/components/canvas/files-widget";
 import { GalleryWidget } from "@/components/canvas/gallery-widget";
 import { MailSummaryWidget } from "@/components/canvas/mail-summary-widget";
 import { MediaWidget } from "@/components/canvas/media-widget";
@@ -19,6 +21,7 @@ import { ProjectDocWidget } from "@/components/canvas/project-doc-widget";
 import type { BoardColumn } from "@/lib/worklog";
 import type { DocProjectSummary } from "@/lib/actions/docs";
 import type { AlbumPreview } from "@/lib/actions/albums";
+import type { FileLibraryPreview } from "@/lib/actions/files";
 import type { GmailStatus } from "@/lib/actions/gmail";
 import type { GmailMessageSummary } from "@/lib/gmail";
 import type { Landmark } from "@/lib/actions/landmarks";
@@ -60,6 +63,8 @@ export type WidgetNodeData = {
   /** Server-prefetched — batched once for every gallery card on the canvas,
    *  same precedent as initialSummary above. */
   initialPreview?: AlbumPreview;
+  /** Server-prefetched — the Files card's own preview, same batching. */
+  initialLibraryPreview?: FileLibraryPreview;
   /** Server-prefetched — only populated for type "mail-summary". */
   initialGmailStatus?: GmailStatus;
   initialGmailMessages?: GmailMessageSummary[];
@@ -80,8 +85,22 @@ function renderWidgetBody(id: string, data: WidgetNodeData): React.ReactNode {
       return <BookmarkWidget id={id} canWrite={data.canWrite} widgetData={data.widgetData} />;
     case "code":
       return <CodeWidget id={id} slug={data.slug ?? ""} canWrite={data.canWrite} widgetData={data.widgetData} />;
+    case "document":
+      return <DocumentWidget id={id} data={data.widgetData} canWrite={data.canWrite} />;
     case "draw":
       return <DrawWidget id={id} canWrite={data.canWrite} widgetData={data.widgetData} />;
+    case "files": {
+      const libraryId = data.widgetData?.libraryId;
+      return (
+        <FilesWidget
+          id={id}
+          libraryId={typeof libraryId === "string" ? libraryId : undefined}
+          slug={data.slug}
+          canWrite={data.canWrite}
+          initialPreview={data.initialLibraryPreview}
+        />
+      );
+    }
     case "gallery": {
       const albumId = data.widgetData?.albumId;
       return (

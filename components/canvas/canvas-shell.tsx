@@ -24,6 +24,7 @@ import type { WidgetLayoutItem } from "@/lib/db";
 import type { BoardColumn } from "@/lib/worklog";
 import type { DocProjectSummary } from "@/lib/actions/docs";
 import type { AlbumPreview } from "@/lib/actions/albums";
+import type { FileLibraryPreview } from "@/lib/actions/files";
 import type { GmailStatus } from "@/lib/actions/gmail";
 import type { GmailMessageSummary } from "@/lib/gmail";
 import { Landmark } from "@/lib/actions/landmarks";
@@ -37,6 +38,7 @@ interface CanvasShellProps {
   canWrite: boolean;
   initialProjectSummaries: Record<string, DocProjectSummary>;
   initialAlbumPreviews: Record<string, AlbumPreview>;
+  initialLibraryPreviews: Record<string, FileLibraryPreview>;
   initialGmailStatus: GmailStatus;
   initialGmailMessages?: GmailMessageSummary[];
   initialLandmarks: Record<string, Landmark>;
@@ -51,6 +53,7 @@ function CanvasInner({
   canWrite,
   initialProjectSummaries,
   initialAlbumPreviews,
+  initialLibraryPreviews,
   initialGmailStatus,
   initialGmailMessages,
   initialLandmarks,
@@ -63,6 +66,7 @@ function CanvasInner({
       slug,
       initialProjectSummaries,
       initialAlbumPreviews,
+      initialLibraryPreviews,
       initialGmailStatus,
       initialGmailMessages,
       initialLandmarks,
@@ -73,6 +77,7 @@ function CanvasInner({
       slug,
       initialProjectSummaries,
       initialAlbumPreviews,
+      initialLibraryPreviews,
       initialGmailStatus,
       initialGmailMessages,
       initialLandmarks,
@@ -90,7 +95,7 @@ function CanvasInner({
     setWidgetDraggable,
     setWidgetSelected,
     addWidget,
-    addMediaFiles,
+    addFiles,
     getPendingFile,
     clearPendingFile,
   } = useWidgetActions({ ctx, setNodes, saveStatus });
@@ -163,7 +168,7 @@ function CanvasInner({
   const { handleDragOverCanvas, handleDropOnCanvas } = useCanvasPaste({
     canWrite,
     addWidget,
-    addMediaFiles,
+    addFiles,
     updateWidgetData,
     screenToFlowPosition,
   });

@@ -1,9 +1,14 @@
+import { classifyDocumentFile, DOCUMENT_RESOURCE_TYPE, DOCUMENT_TYPE_ERROR } from "@/lib/canvas/document-file";
+
+export type UploadResourceType = "image" | "video" | "raw";
+
 export type CloudinaryUploadResult = {
   url: string;
-  resourceType: "image" | "video";
+  resourceType: UploadResourceType;
   width?: number;
   height?: number;
   publicId?: string;
+  bytes?: number;
 };
 
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -19,21 +24,35 @@ async function getUploadSignature(): Promise<SignatureResponse> {
   return res.json();
 }
 
+/** Which Cloudinary resource type a file belongs under, or null if this app
+ *  doesn't accept it at all. A PDF resolves to `image` (see
+ *  DOCUMENT_RESOURCE_TYPE) even though nothing about it is an image. */
+export function resolveResourceType(file: File): UploadResourceType | null {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("video/")) return "video";
+  const kind = classifyDocumentFile(file.type, file.name);
+  return kind ? DOCUMENT_RESOURCE_TYPE[kind] : null;
+}
+
 /** Requests a short-lived signed upload from our server (no file bytes sent
  *  there), then uploads the file straight to Cloudinary — the server never
  *  proxies the file itself. `onProgress` receives 0-100 from the upload's
- *  real progress, same as any multipart POST tracked via XHR. */
+ *  real progress, same as any multipart POST tracked via XHR.
+ *
+ *  The signature covers only `{ timestamp, folder }`, so one signature works
+ *  for any resource type — the type lives in the upload URL's path, not in the
+ *  signed params. */
 export async function uploadToCloudinary(
   file: File,
   onProgress?: (percent: number) => void,
 ): Promise<CloudinaryUploadResult> {
-  const isImage = file.type.startsWith("image/");
-  const isVideo = file.type.startsWith("video/");
-  if (!isImage && !isVideo) throw new Error("Only images and videos are supported.");
+  const resourceType = resolveResourceType(file);
+  if (!resourceType) {
+    throw new Error(`Only images, videos and documents are supported. ${DOCUMENT_TYPE_ERROR}`);
+  }
   if (file.size > MAX_BYTES) throw new Error("File is too large (max 25MB).");
 
   const { signature, timestamp, folder, apiKey, cloudName } = await getUploadSignature();
-  const resourceType = isVideo ? "video" : "image";
 
   return new Promise<CloudinaryUploadResult>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -60,6 +79,7 @@ export async function uploadToCloudinary(
           width: result.width,
           height: result.height,
           publicId: result.public_id,
+          bytes: result.bytes,
         });
       } catch {
         reject(new Error("Upload failed. Try again."));

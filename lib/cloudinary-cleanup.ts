@@ -19,6 +19,23 @@ export async function enqueueCloudinaryCleanup(publicIds: string[]): Promise<Cle
     .returning({ id: cloudinaryCleanupJobs.id, publicId: cloudinaryCleanupJobs.publicId });
 }
 
+/**
+ * A public id alone doesn't say which resource type the asset lives under, and
+ * `destroy` silently reports "not found" when asked under the wrong one — so a
+ * Word document (uploaded as `raw`, see lib/canvas/document-file.ts) would look
+ * like a successful cleanup while the asset stayed billable forever. The job
+ * row has no resource-type column, so the type is discovered by asking: images
+ * first, since almost everything here is one, then the others only when the
+ * answer was "not found".
+ */
+async function destroyAcrossResourceTypes(publicId: string): Promise<string> {
+  for (const resourceType of ["image", "raw", "video"] as const) {
+    const result = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+    if (result.result !== "not found") return result.result;
+  }
+  return "not found";
+}
+
 /** Attempts each job's Cloudinary destroy once and records the outcome.
  *  Shared by the immediate after() best-effort pass (lib/actions/albums.ts)
  *  and the cron sweep (app/api/cron/cloudinary-cleanup/route.ts) — same
@@ -28,11 +45,11 @@ export async function runCleanupJobs(jobs: CleanupJob[]): Promise<void> {
   await Promise.all(
     jobs.map(async (job) => {
       try {
-        const result = await cloudinary.uploader.destroy(job.publicId);
+        const result = await destroyAcrossResourceTypes(job.publicId);
         // "not found" means the asset is already gone — that's the outcome
         // we wanted, not a failure to retry.
-        if (result.result !== "ok" && result.result !== "not found") {
-          throw new Error(`Cloudinary destroy returned "${result.result}"`);
+        if (result !== "ok" && result !== "not found") {
+          throw new Error(`Cloudinary destroy returned "${result}"`);
         }
         await db
           .update(cloudinaryCleanupJobs)
