@@ -1,22 +1,27 @@
 export type DocumentKind = "pdf" | "word";
 
-/** Cloudinary resource type each kind is stored under. PDFs go up as `image`
- *  because that is the only resource type Cloudinary will rasterise, which is
- *  where the first-page thumbnail comes from; Word files have no such
- *  transform without the paid conversion add-on, so they are plain `raw`
- *  blobs we only ever hand back whole. */
+/** What one album row holds. Photos and documents share the album tables
+ *  rather than living in two parallel stacks — an album is "the things that
+ *  belong together", and a spec sheet belongs next to the screenshots of the
+ *  thing it specifies. */
+export type AlbumItemKind = "image" | DocumentKind;
+
+/** Cloudinary resource type each document kind is stored under. PDFs go up as
+ *  `image` because that is the only resource type Cloudinary will rasterise,
+ *  which is where the first-page thumbnail comes from; Word files have no such
+ *  transform without the paid conversion add-on, so they are plain `raw` blobs
+ *  we only ever hand back whole. */
 export const DOCUMENT_RESOURCE_TYPE: Record<DocumentKind, "image" | "raw"> = {
   pdf: "image",
   word: "raw",
 };
 
-export const DOCUMENT_MIME_PATTERN =
-  /^application\/(pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/;
-
 export const DOCUMENT_ACCEPT =
   ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-export const DOCUMENT_TYPE_ERROR = "Only PDF and Word files (.pdf, .doc, .docx) can go here.";
+export const ALBUM_ACCEPT = `image/*,${DOCUMENT_ACCEPT}`;
+
+export const ALBUM_TYPE_ERROR = "Only images, PDFs and Word files (.pdf, .doc, .docx) can go here.";
 
 const WORD_MIME = new Set([
   "application/msword",
@@ -43,6 +48,12 @@ export function classifyDocumentFile(mime: string, name = ""): DocumentKind | nu
 
 export function isDocumentFile(file: { type: string; name: string }): boolean {
   return classifyDocumentFile(file.type, file.name) !== null;
+}
+
+/** What an album would store this file as, or null if it takes it at all. */
+export function classifyAlbumFile(file: { type: string; name: string }): AlbumItemKind | null {
+  if (file.type.startsWith("image/")) return "image";
+  return classifyDocumentFile(file.type, file.name);
 }
 
 const SIZE_UNITS = ["B", "KB", "MB", "GB"];
@@ -81,36 +92,14 @@ export function pdfThumbnailUrl(url: string): string {
   return `${head}f_jpg,pg_1,w_640,q_auto/${jpeg}`;
 }
 
-export type DocumentData =
-  | { status: "empty" }
-  | { status: "uploading" }
-  | {
-      status: "ready";
-      url: string;
-      cloudinaryPublicId?: string;
-      kind: DocumentKind;
-      name: string;
-      bytes: number;
-    }
-  | { status: "error"; message: string };
+/** The thumbnail an album tile should show, or null when the kind has none
+ *  (Word) — the caller renders a file-type card instead of a fake preview. */
+export function albumThumbnailUrl(item: { kind: string; url: string }): string | null {
+  if (item.kind === "image") return item.url;
+  if (item.kind === "pdf") return pdfThumbnailUrl(item.url);
+  return null;
+}
 
-/** The widget's persisted `data` JSONB, narrowed. Anything unrecognised reads
- *  as an empty card rather than throwing — a widget row outlives the code that
- *  wrote it. */
-export function readDocumentData(data: Record<string, unknown> | undefined): DocumentData {
-  if (data?.status === "ready" && typeof data.url === "string") {
-    return {
-      status: "ready",
-      url: data.url,
-      cloudinaryPublicId: typeof data.cloudinaryPublicId === "string" ? data.cloudinaryPublicId : undefined,
-      kind: data.kind === "word" ? "word" : "pdf",
-      name: typeof data.name === "string" && data.name ? data.name : "Document",
-      bytes: typeof data.bytes === "number" ? data.bytes : 0,
-    };
-  }
-  if (data?.status === "uploading") return { status: "uploading" };
-  if (data?.status === "error") {
-    return { status: "error", message: typeof data.message === "string" ? data.message : "Upload failed." };
-  }
-  return { status: "empty" };
+export function documentLabel(kind: string): string {
+  return kind === "word" ? "Word" : "PDF";
 }

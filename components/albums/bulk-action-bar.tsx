@@ -4,41 +4,33 @@ import { motion } from "framer-motion";
 import { Download, FolderInput, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { downloadItem } from "@/components/albums/album-grid";
 import { useAlbumImageMutations } from "@/components/albums/use-album-image-mutations";
 import type { AlbumGroupRow, AlbumImageRow } from "@/lib/actions/albums";
 
 interface BulkActionBarProps {
   selectedIds: Set<string>;
-  images: AlbumImageRow[];
+  items: AlbumImageRow[];
   groups: AlbumGroupRow[];
   onClear: () => void;
   onDone: () => void;
 }
 
-export function BulkActionBar({ selectedIds, images, groups, onClear, onDone }: BulkActionBarProps) {
+export function BulkActionBar({ selectedIds, items, groups, onClear, onDone }: BulkActionBarProps) {
   const ids = [...selectedIds];
   const { bulkDelete, bulkMove } = useAlbumImageMutations(onDone);
 
   function handleDownload() {
-    const selected = images.filter((img) => selectedIds.has(img.id));
+    const selected = items.filter((item) => selectedIds.has(item.id));
     // Staggered — firing many downloads in the same tick gets a chunk of
     // them silently dropped by the browser's popup/download throttling.
-    selected.forEach((img, i) => {
-      setTimeout(() => {
-        const a = document.createElement("a");
-        a.href = img.url;
-        a.download = img.name ?? "";
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }, i * 300);
+    selected.forEach((item, i) => {
+      setTimeout(() => downloadItem(item), i * 300);
     });
   }
 
   function handleDelete() {
-    if (!window.confirm(`Delete ${ids.length} photo${ids.length > 1 ? "s" : ""}? This can't be undone.`)) return;
+    if (!window.confirm(`Delete ${ids.length} file${ids.length > 1 ? "s" : ""}? This can't be undone.`)) return;
     bulkDelete.mutate(ids, { onSuccess: onClear });
   }
 

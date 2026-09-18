@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  albumThumbnailUrl,
+  classifyAlbumFile,
   classifyDocumentFile,
-  DOCUMENT_MIME_PATTERN,
+  DOCUMENT_RESOURCE_TYPE,
   formatFileSize,
   isDocumentFile,
   pdfThumbnailUrl,
-  readDocumentData,
-} from "@/lib/canvas/document-file";
+} from "@/lib/album-file";
 
 describe("classifyDocumentFile", () => {
   it("classifies by MIME type", () => {
@@ -41,14 +42,23 @@ describe("classifyDocumentFile", () => {
   });
 });
 
-describe("DOCUMENT_MIME_PATTERN", () => {
-  it("matches exactly the accepted document types", () => {
-    expect(DOCUMENT_MIME_PATTERN.test("application/pdf")).toBe(true);
-    expect(DOCUMENT_MIME_PATTERN.test("application/msword")).toBe(true);
-    expect(DOCUMENT_MIME_PATTERN.test("image/png")).toBe(false);
-    // Anchored on both ends — the paste handler ORs this into a larger
-    // pattern, and an unanchored version would match half of any MIME type.
-    expect(DOCUMENT_MIME_PATTERN.test("x-application/pdf-ish")).toBe(false);
+describe("classifyAlbumFile", () => {
+  it("takes photos and documents, and nothing else", () => {
+    expect(classifyAlbumFile({ type: "image/png", name: "shot.png" })).toBe("image");
+    expect(classifyAlbumFile({ type: "application/pdf", name: "spec.pdf" })).toBe("pdf");
+    expect(classifyAlbumFile({ type: "", name: "notes.docx" })).toBe("word");
+    // Video uploads still exist on the canvas, but an album isn't where they go.
+    expect(classifyAlbumFile({ type: "video/mp4", name: "clip.mp4" })).toBeNull();
+    expect(classifyAlbumFile({ type: "application/zip", name: "a.zip" })).toBeNull();
+  });
+});
+
+describe("DOCUMENT_RESOURCE_TYPE", () => {
+  // A Word file destroyed under the wrong resource type reports "not found"
+  // and leaks — the row records the right one so the delete is exact.
+  it("maps each kind to the Cloudinary resource type it is stored under", () => {
+    expect(DOCUMENT_RESOURCE_TYPE.pdf).toBe("image");
+    expect(DOCUMENT_RESOURCE_TYPE.word).toBe("raw");
   });
 });
 
@@ -80,36 +90,19 @@ describe("pdfThumbnailUrl", () => {
   });
 });
 
-describe("readDocumentData", () => {
-  it("reads a finished document", () => {
-    expect(
-      readDocumentData({
-        status: "ready",
-        url: "https://res.cloudinary.com/demo/raw/upload/v1/a.docx",
-        cloudinaryPublicId: "helm-canvas/org_1/a.docx",
-        kind: "word",
-        name: "a.docx",
-        bytes: 1024,
-      }),
-    ).toEqual({
-      status: "ready",
-      url: "https://res.cloudinary.com/demo/raw/upload/v1/a.docx",
-      cloudinaryPublicId: "helm-canvas/org_1/a.docx",
-      kind: "word",
-      name: "a.docx",
-      bytes: 1024,
-    });
+describe("albumThumbnailUrl", () => {
+  const pdf = "https://res.cloudinary.com/demo/image/upload/v1/spec.pdf";
+
+  it("shows a photo as itself and a PDF as its first page", () => {
+    expect(albumThumbnailUrl({ kind: "image", url: "https://res.cloudinary.com/demo/image/upload/v1/a.png" })).toBe(
+      "https://res.cloudinary.com/demo/image/upload/v1/a.png",
+    );
+    expect(albumThumbnailUrl({ kind: "pdf", url: pdf })).toContain("f_jpg,pg_1");
   });
 
-  it("treats a widget with no data as an empty picker, not a stuck upload", () => {
-    expect(readDocumentData(undefined)).toEqual({ status: "empty" });
-    expect(readDocumentData({})).toEqual({ status: "empty" });
-  });
-
-  it("survives a row written by older or broken code", () => {
-    // ready without a url is not ready
-    expect(readDocumentData({ status: "ready" })).toEqual({ status: "empty" });
-    expect(readDocumentData({ status: "error" })).toEqual({ status: "error", message: "Upload failed." });
-    expect(readDocumentData({ status: "ready", url: "u" })).toMatchObject({ kind: "pdf", name: "Document", bytes: 0 });
+  // Nothing Cloudinary can render without the paid conversion add-on, so the
+  // tile draws a file-type card instead of a fake preview.
+  it("has nothing to show for a Word file", () => {
+    expect(albumThumbnailUrl({ kind: "word", url: "https://res.cloudinary.com/demo/raw/upload/v1/a.docx" })).toBeNull();
   });
 });

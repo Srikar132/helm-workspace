@@ -1,7 +1,7 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import { Bookmark, Code2, FileText, FolderGit2, FolderOpen, Images, NotebookPen } from "lucide-react";
+import { Bookmark, Code2, FolderGit2, Images, NotebookPen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export interface AddableWidgetType {
@@ -16,8 +16,6 @@ export const ADDABLE_WIDGET_TYPES: AddableWidgetType[] = [
   { type: "bookmark", label: "Bookmark", icon: Bookmark },
   { type: "gallery", label: "Gallery", icon: Images },
   { type: "code", label: "Code", icon: Code2 },
-  { type: "document", label: "Document", icon: FileText },
-  { type: "files", label: "Files", icon: FolderOpen },
 ];
 
 interface ToolbarItemProps extends AddableWidgetType {

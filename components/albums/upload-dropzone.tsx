@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { ALBUM_ACCEPT } from "@/lib/album-file";
 
 interface UploadDropzoneProps {
   uploadFiles: (files: FileList | File[]) => void;
@@ -23,7 +24,7 @@ export function UploadDropzone({ uploadFiles, className, children }: UploadDropz
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={ALBUM_ACCEPT}
         multiple
         className="hidden"
         onChange={(e) => {

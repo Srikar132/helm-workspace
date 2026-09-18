@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertCircle, ChevronRight, Images, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, ChevronRight, FileText, Images, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useCanvasActions } from "@/components/canvas/canvas-actions-context";
@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { createAlbumAction, deleteAlbumAction, getAlbumPreview, type AlbumPreview } from "@/lib/actions/albums";
 import { unwrapAction } from "@/lib/query-utils";
+import { albumThumbnailUrl } from "@/lib/album-file";
 
 interface GalleryWidgetProps {
   id: string;
@@ -65,7 +66,7 @@ function DraftAlbumForm({ id, canWrite }: { id: string; canWrite: boolean }) {
           </div>
           <div>
             <h3 className="text-[13px] font-semibold text-[#e8eaed]">New Gallery</h3>
-            <p className="text-[11px] text-[#9aa0a6]">Create a photo collection</p>
+            <p className="text-[11px] text-[#9aa0a6]">Photos, PDFs and Word files</p>
           </div>
         </div>
 
@@ -143,7 +144,7 @@ function GalleryCard({
   });
 
   function handleDeleteGallery() {
-    if (!window.confirm("Delete this gallery and all its photos? This can't be undone.")) return;
+    if (!window.confirm("Delete this gallery and everything in it? This can't be undone.")) return;
     deleteMutation.mutate();
   }
 
@@ -197,7 +198,11 @@ function GalleryCardBody({
   albumId: string;
 }) {
   const { name, count, images } = preview;
-  const coverImg = images && images.length > 0 ? images[0].url : null;
+  // A Word file has no thumbnail Cloudinary can make (see albumThumbnailUrl),
+  // so the cover falls back to the empty-gallery frame rather than a broken
+  // image — the badge and count still say the album isn't empty.
+  const cover = images && images.length > 0 ? images[0] : null;
+  const coverImg = cover ? albumThumbnailUrl(cover) : null;
   const subImages = images && images.length > 1 ? images.slice(1) : [];
   const extraCount = count > images.length ? count - images.length : 0;
 
@@ -219,9 +224,11 @@ function GalleryCardBody({
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#161b22] to-[#0e1117] p-4 text-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04] text-zinc-300">
-              <Images className="h-5 w-5 opacity-75" />
+              {cover ? <FileText className="h-5 w-5 opacity-75" /> : <Images className="h-5 w-5 opacity-75" />}
             </div>
-            <span className="text-[11.5px] font-medium text-widget-text-secondary">Empty Gallery</span>
+            <span className="text-[11.5px] font-medium text-widget-text-secondary">
+              {count > 0 ? `${count} ${count === 1 ? "file" : "files"}` : "Empty Gallery"}
+            </span>
           </div>
         )}
 
@@ -234,18 +241,25 @@ function GalleryCardBody({
         {/* Overlapping Thumbnails Stack (Bottom Left of Hero) */}
         {subImages.length > 0 && (
           <div className="absolute bottom-2.5 left-2.5 flex items-center">
-            {subImages.map((img, i) => (
-              <div
-                key={img.id}
-                style={{ zIndex: subImages.length - i }}
-                className={`relative h-7 w-7 overflow-hidden rounded-full border-2 border-widget-bg shadow-md transition-transform group-hover:scale-105 ${
-                  i > 0 ? "-ml-2.5" : ""
-                }`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.url} alt="" className="h-full w-full object-cover" />
-              </div>
-            ))}
+            {subImages.map((img, i) => {
+              const thumbnail = albumThumbnailUrl(img);
+              return (
+                <div
+                  key={img.id}
+                  style={{ zIndex: subImages.length - i }}
+                  className={`relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border-2 border-widget-bg bg-widget-surface shadow-md transition-transform group-hover:scale-105 ${
+                    i > 0 ? "-ml-2.5" : ""
+                  }`}
+                >
+                  {thumbnail ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={thumbnail} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <FileText className="h-3.5 w-3.5 text-[#8ab4f8]" />
+                  )}
+                </div>
+              );
+            })}
 
             {extraCount > 0 && (
               <div
@@ -266,7 +280,7 @@ function GalleryCardBody({
             {name}
           </h3>
           <p className="text-[11px] font-medium text-widget-text-secondary">
-            {count} {count === 1 ? "photo" : "photos"}
+            {count} {count === 1 ? "file" : "files"}
           </p>
         </div>
 

@@ -16,7 +16,7 @@ function errorToast(title: string, err: Error) {
   toastManager.add({ title, description: err.message, type: "error" });
 }
 
-/** Shared by photo-grid.tsx's per-tile menu, lightbox.tsx's action bar, and
+/** Shared by album-grid.tsx's per-tile menu, lightbox.tsx's action bar, and
  *  bulk-action-bar.tsx — the same six write paths, previously duplicated
  *  (rename/delete/duplicate/move ×2, bulk delete/move) across those files
  *  as raw `.then(onChanged)` calls. */
@@ -25,9 +25,9 @@ export function useAlbumImageMutations(onChanged: () => void) {
     mutationFn: (input: { id: string; name: string }) => unwrapAction(renameImageAction(input.id, input.name)),
     onSuccess: () => {
       onChanged();
-      toastManager.add({ title: "Photo renamed", type: "success" });
+      toastManager.add({ title: "File renamed", type: "success" });
     },
-    onError: (err) => errorToast("Failed to rename photo", err),
+    onError: (err) => errorToast("Failed to rename file", err),
   });
 
   const duplicate = useMutation({
@@ -35,18 +35,18 @@ export function useAlbumImageMutations(onChanged: () => void) {
       unwrapAction(copyImageAction(input.id, input.targetGroupId)),
     onSuccess: () => {
       onChanged();
-      toastManager.add({ title: "Photo duplicated", type: "success" });
+      toastManager.add({ title: "File duplicated", type: "success" });
     },
-    onError: (err) => errorToast("Failed to duplicate photo", err),
+    onError: (err) => errorToast("Failed to duplicate file", err),
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => unwrapAction(deleteImageAction(id)),
     onSuccess: () => {
       onChanged();
-      toastManager.add({ title: "Photo deleted", type: "success" });
+      toastManager.add({ title: "File deleted", type: "success" });
     },
-    onError: (err) => errorToast("Failed to delete photo", err),
+    onError: (err) => errorToast("Failed to delete file", err),
   });
 
   const move = useMutation({
@@ -54,18 +54,18 @@ export function useAlbumImageMutations(onChanged: () => void) {
       unwrapAction(moveImageToGroupAction(input.id, input.groupId)),
     onSuccess: (_data, input) => {
       onChanged();
-      toastManager.add({ title: input.groupId ? "Photo moved" : "Removed from group", type: "success" });
+      toastManager.add({ title: input.groupId ? "File moved" : "Removed from group", type: "success" });
     },
-    onError: (err) => errorToast("Failed to move photo", err),
+    onError: (err) => errorToast("Failed to move file", err),
   });
 
   const bulkDelete = useMutation({
     mutationFn: (ids: string[]) => unwrapAction(bulkDeleteImagesAction(ids)),
     onSuccess: (_data, ids) => {
       onChanged();
-      toastManager.add({ title: `${ids.length} photo${ids.length > 1 ? "s" : ""} deleted`, type: "success" });
+      toastManager.add({ title: `${ids.length} file${ids.length > 1 ? "s" : ""} deleted`, type: "success" });
     },
-    onError: (err) => errorToast("Failed to delete photos", err),
+    onError: (err) => errorToast("Failed to delete files", err),
   });
 
   const bulkMove = useMutation({
@@ -74,11 +74,11 @@ export function useAlbumImageMutations(onChanged: () => void) {
     onSuccess: (_data, input) => {
       onChanged();
       toastManager.add({
-        title: `${input.ids.length} photo${input.ids.length > 1 ? "s" : ""} moved`,
+        title: `${input.ids.length} file${input.ids.length > 1 ? "s" : ""} moved`,
         type: "success",
       });
     },
-    onError: (err) => errorToast("Failed to move photos", err),
+    onError: (err) => errorToast("Failed to move files", err),
   });
 
   return { rename, duplicate, remove, move, bulkDelete, bulkMove };

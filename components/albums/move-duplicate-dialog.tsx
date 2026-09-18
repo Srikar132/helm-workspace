@@ -12,7 +12,7 @@ interface MoveDuplicateDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/** Shown when a photo (or a multi-selection) is dropped onto a sidebar group
+/** Shown when a file (or a multi-selection) is dropped onto a sidebar group
  *  — dnd-kit only tells us WHERE it landed, not whether the user meant to
  *  relocate it or keep the original and branch a copy, so we ask. Duplicate
  *  only applies to a single-image drop (no bulk-duplicate action exists). */
@@ -21,7 +21,7 @@ export function MoveDuplicateDialog({ imageCount, groupName, onMove, onDuplicate
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="w-[90vw] max-w-sm rounded-2xl border border-white/[0.08] bg-popover p-5 shadow-2xl">
         <DialogTitle className="text-[14px] text-foreground">
-          {imageCount > 1 ? `Move ${imageCount} photos` : "Move photo"} to &quot;{groupName}&quot;?
+          {imageCount > 1 ? `Move ${imageCount} files` : "Move file"} to &quot;{groupName}&quot;?
         </DialogTitle>
         <DialogDescription className="mt-1.5 text-[12.5px] text-muted-foreground">
           Move takes {imageCount > 1 ? "them" : "it"} out of the current group.

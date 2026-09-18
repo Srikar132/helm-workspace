@@ -1,10 +1,6 @@
 import { useEffect, useRef } from "react";
-import { DOCUMENT_MIME_PATTERN, isDocumentFile } from "@/lib/canvas/document-file";
 
 const MEDIA_MIME_PATTERN = /^(image|video)\//;
-// A clipboard item exposes only its MIME type — there is no filename to fall
-// back on the way a dropped File has one, so paste matches on type alone.
-const UPLOADABLE_MIME_PATTERN = new RegExp(`${MEDIA_MIME_PATTERN.source}|${DOCUMENT_MIME_PATTERN.source}`);
 // A pasted string becomes a bookmark only if it's *just* a URL — no other
 // text, no whitespace/newlines. Anything else (a sentence, a URL plus a
 // caption, multiple lines) becomes a note instead.
@@ -23,21 +19,20 @@ function isEditableTarget(target: EventTarget | null) {
 interface UseCanvasPasteArgs {
   canWrite: boolean;
   addWidget: (type: string, dropPoint?: { x: number; y: number }) => string;
-  addFiles: (files: File[], dropPoint: { x: number; y: number }) => void;
+  addMediaFiles: (files: File[], dropPoint: { x: number; y: number }) => void;
   updateWidgetData: (id: string, widgetData: Record<string, unknown>) => void;
   screenToFlowPosition: (point: { x: number; y: number }) => { x: number; y: number };
 }
 
 /**
- * "External content enters the canvas" — a pasted image or video becomes a
- * media widget and a pasted PDF/Word file becomes a document widget, a pasted
- * bare URL becomes a bookmark (fetching its own preview), any other pasted text
- * becomes a note; dropped files behave the same way.
+ * "External content enters the canvas" — pasted files become media
+ * widgets, a pasted bare URL becomes a bookmark (fetching its own preview),
+ * any other pasted text becomes a note; dropped files behave the same way.
  */
 export function useCanvasPaste({
   canWrite,
   addWidget,
-  addFiles,
+  addMediaFiles,
   updateWidgetData,
   screenToFlowPosition,
 }: UseCanvasPasteArgs) {
@@ -58,7 +53,7 @@ export function useCanvasPaste({
 
       const files: File[] = [];
       for (const item of items) {
-        if (item.kind === "file" && UPLOADABLE_MIME_PATTERN.test(item.type)) {
+        if (item.kind === "file" && MEDIA_MIME_PATTERN.test(item.type)) {
           const file = item.getAsFile();
           if (file) files.push(file);
         }
@@ -66,7 +61,7 @@ export function useCanvasPaste({
       if (files.length) {
         e.preventDefault();
         const dropPoint = screenToFlowPosition(lastPointerPos.current);
-        addFiles(files, dropPoint);
+        addMediaFiles(files, dropPoint);
         return;
       }
 
@@ -96,7 +91,7 @@ export function useCanvasPaste({
       window.removeEventListener("pointermove", trackPointer);
       document.removeEventListener("paste", handlePaste);
     };
-  }, [canWrite, addFiles, addWidget, updateWidgetData, screenToFlowPosition]);
+  }, [canWrite, addMediaFiles, addWidget, updateWidgetData, screenToFlowPosition]);
 
   function handleDragOverCanvas(event: React.DragEvent) {
     if (canWrite) event.preventDefault();
@@ -104,15 +99,11 @@ export function useCanvasPaste({
 
   function handleDropOnCanvas(event: React.DragEvent) {
     if (!canWrite) return;
-    // Dropped files carry a name, so a document is recognised even when the OS
-    // hands over an empty or generic MIME type (see classifyDocumentFile).
-    const files = Array.from(event.dataTransfer.files).filter(
-      (f) => MEDIA_MIME_PATTERN.test(f.type) || isDocumentFile(f),
-    );
+    const files = Array.from(event.dataTransfer.files).filter((f) => MEDIA_MIME_PATTERN.test(f.type));
     if (!files.length) return;
     event.preventDefault();
     const dropPoint = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    addFiles(files, dropPoint);
+    addMediaFiles(files, dropPoint);
   }
 
   return { handleDragOverCanvas, handleDropOnCanvas };

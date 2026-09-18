@@ -13,7 +13,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckSquare, Folder, FolderPlus, ImagePlus, Images, Menu, X } from "lucide-react";
+import { ArrowLeft, CheckSquare, FilePlus2, FileText, Folder, FolderPlus, Images, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -30,13 +30,15 @@ import {
   type AlbumRow,
 } from "@/lib/actions/albums";
 import { unwrapAction } from "@/lib/query-utils";
-import { PhotoGrid } from "@/components/albums/photo-grid";
+import { AlbumGrid, downloadItem } from "@/components/albums/album-grid";
 import { UploadDropzone } from "@/components/albums/upload-dropzone";
 import { useAlbumUpload } from "@/components/albums/use-album-upload";
 import { useAlbumImageMutations } from "@/components/albums/use-album-image-mutations";
 import { Lightbox } from "@/components/albums/lightbox";
+import { DocumentViewerOverlay } from "@/components/albums/document-viewer-overlay";
 import { BulkActionBar } from "@/components/albums/bulk-action-bar";
 import { MoveDuplicateDialog } from "@/components/albums/move-duplicate-dialog";
+import { albumThumbnailUrl } from "@/lib/album-file";
 
 /** "ungrouped" (the sidebar's built-in row) is a valid drop target that maps
  *  to a real `groupId: null`, distinct from dnd-kit's droppable id string. */
@@ -56,7 +58,7 @@ interface AlbumViewProps {
   canWrite: boolean;
 }
 
-/** "all" = every photo regardless of group; "ungrouped" = no group; anything
+/** "all" = every file regardless of group; "ungrouped" = no group; anything
  *  else is a real group id. */
 type Filter = "all" | "ungrouped" | string;
 
@@ -73,6 +75,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<AlbumImageRow | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
@@ -100,7 +103,25 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
     staleTime: 30_000,
   });
 
-  const images = data?.pages.flatMap((p) => p.images) ?? [];
+  const items = data?.pages.flatMap((p) => p.images) ?? [];
+  // The lightbox pages through photos only — a PDF has its own viewer and a
+  // Word file has none at all, so indexes are into this list, not `items`.
+  const photos = items.filter((item) => item.kind === "image");
+
+  /** A photo opens the lightbox, a PDF the document viewer; a Word file has
+   *  nothing in a browser that can render it, so it downloads. */
+  function openItem(item: AlbumImageRow) {
+    if (item.kind === "image") {
+      const index = photos.findIndex((photo) => photo.id === item.id);
+      if (index >= 0) setLightboxIndex(index);
+      return;
+    }
+    if (item.kind === "pdf") {
+      setViewingDocument(item);
+      return;
+    }
+    downloadItem(item);
+  }
 
   // The canvas gallery card caches this album's preview (count + latest 3)
   // under this same key — now that the QueryClient is shared across route
@@ -163,7 +184,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
   });
 
   function handleDeleteGroup(id: string, name: string) {
-    if (!window.confirm(`Delete "${name}"? Its photos become ungrouped — nothing is deleted.`)) return;
+    if (!window.confirm(`Delete "${name}"? Its files become ungrouped — nothing is deleted.`)) return;
     setGroups((prev) => prev.filter((g) => g.id !== id));
     if (filter === id) setFilter("all");
     deleteGroupMutation.mutate(id);
@@ -212,7 +233,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
 
   function handleDragStart(event: DragStartEvent) {
     const imageId = event.active.data.current?.imageId as string | undefined;
-    setDraggingImage(images.find((img) => img.id === imageId) ?? null);
+    setDraggingImage(items.find((item) => item.id === imageId) ?? null);
     // The group sidebar (the only drop targets) is hidden behind a toggle on
     // mobile — without this, a drag on a narrow screen has nowhere to land.
     setSidebarOpen(true);
@@ -297,16 +318,16 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
         />
         <span className="flex items-center gap-1 rounded-full bg-white/[0.04] px-2.5 py-1 text-[11.5px] text-muted-foreground">
           <Images className="h-3 w-3" />
-          {images.length}
+          {items.length}
         </span>
 
-        {images.length > 0 && (
+        {items.length > 0 && (
           <Button
             type="button"
             variant="ghost"
             size="icon"
             onClick={toggleSelectionMode}
-            title="Select photos"
+            title="Select files"
             className={
               selectionMode
                 ? "rounded-full bg-primary/15 text-primary hover:bg-primary/15"
@@ -322,8 +343,8 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
             uploadFiles={uploadFiles}
             className="ml-auto flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-semibold shadow-[0_2px_8px_rgba(138,180,248,0.3)] transition-transform active:scale-95 cursor-pointer sm:px-3.5"
           >
-            <ImagePlus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Add photos</span>
+            <FilePlus2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Add files</span>
           </UploadDropzone>
         )}
       </div>
@@ -341,7 +362,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
           <div className="flex-1 overflow-y-auto scrollbar-thin p-2">
             <SidebarRow
               icon={Images}
-              label="All photos"
+              label="All files"
               active={filter === "all"}
               onClick={() => selectFilter("all")}
             />
@@ -397,14 +418,14 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
           onDragOver={(e) => canWrite && e.preventDefault()}
           onDrop={handleDrop}
         >
-          <PhotoGrid
-            images={images}
+          <AlbumGrid
+            items={items}
             pendingUploads={pending}
             onDismissPending={dismissPending}
             selectedIds={selectedIds}
             canWrite={canWrite}
             onToggleSelect={toggleSelect}
-            onOpenLightbox={setLightboxIndex}
+            onOpen={openItem}
             hasMore={!!hasNextPage}
             loadingMore={isFetchingNextPage}
             onLoadMore={() => void fetchNextPage()}
@@ -419,7 +440,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
       {selectedIds.size > 0 && (
         <BulkActionBar
           selectedIds={selectedIds}
-          images={images}
+          items={items}
           groups={groups}
           onClear={() => setSelectedIds(new Set())}
           onDone={invalidateAlbum}
@@ -428,13 +449,21 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
 
       {lightboxIndex !== null && (
         <Lightbox
-          images={images}
+          images={photos}
           index={lightboxIndex}
           groups={groups}
           canWrite={canWrite}
           onClose={() => setLightboxIndex(null)}
           onIndexChange={setLightboxIndex}
           onChanged={invalidateAlbum}
+        />
+      )}
+
+      {viewingDocument && (
+        <DocumentViewerOverlay
+          url={viewingDocument.url}
+          name={viewingDocument.name ?? "Document"}
+          onClose={() => setViewingDocument(null)}
         />
       )}
 
@@ -455,9 +484,13 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
       createPortal(
         <DragOverlay dropAnimation={null}>
           {draggingImage ? (
-            <div className="relative h-24 w-24 overflow-hidden rounded-2xl border-2 border-primary shadow-2xl">
-              {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary external Cloudinary domain */}
-              <img src={draggingImage.url} alt="" className="h-full w-full object-cover" />
+            <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border-2 border-primary bg-card shadow-2xl">
+              {albumThumbnailUrl(draggingImage) ? (
+                // eslint-disable-next-line @next/next/no-img-element -- arbitrary external Cloudinary domain
+                <img src={albumThumbnailUrl(draggingImage)!} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <FileText className="h-7 w-7 text-[#8ab4f8]" />
+              )}
               {selectedIds.has(draggingImage.id) && selectedIds.size > 1 && (
                 <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-primary-foreground">
                   {selectedIds.size}

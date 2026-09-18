@@ -2,12 +2,13 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { addImageToAlbum, type AlbumImageRow } from "@/lib/actions/albums";
+import { addItemToAlbum, type AlbumImageRow } from "@/lib/actions/albums";
 import { unwrapAction } from "@/lib/query-utils";
 import { toastManager } from "@/lib/toast";
 import { uploadToCloudinary } from "@/lib/upload-client";
+import { ALBUM_TYPE_ERROR, classifyAlbumFile } from "@/lib/album-file";
 
-export type PendingUpload = { id: string; progress: number; error?: string };
+export type PendingUpload = { id: string; name: string; progress: number; error?: string };
 
 /** Uploads straight to Cloudinary (see lib/upload-client.ts — no file bytes
  *  proxied through our server), then attaches the result to this album/group.
@@ -18,23 +19,31 @@ export function useAlbumUpload(albumId: string, groupId: string | null, onUpload
   const nextId = useRef(0);
 
   const attachMutation = useMutation({
-    mutationFn: (input: Parameters<typeof addImageToAlbum>[0]) => unwrapAction(addImageToAlbum(input)),
+    mutationFn: (input: Parameters<typeof addItemToAlbum>[0]) => unwrapAction(addItemToAlbum(input)),
   });
 
-  function uploadOne(file: File) {
+  function uploadOne(file: File, kind: "image" | "pdf" | "word") {
     const localId = `pending-${nextId.current++}`;
-    setPending((prev) => [{ id: localId, progress: 0 }, ...prev]);
+    setPending((prev) => [{ id: localId, name: file.name, progress: 0 }, ...prev]);
 
     uploadToCloudinary(file, (progress) => {
       setPending((prev) => prev.map((p) => (p.id === localId ? { ...p, progress } : p)));
     })
       .then((result) => {
+        // A document keeps its filename — it's the only thing identifying it on
+        // a tile. A photo shows its own pixels, so it stays unnamed until the
+        // user renames it, as before.
+        const name = kind === "image" ? undefined : file.name;
         attachMutation.mutate(
           {
             albumId,
             url: result.url,
             width: result.width,
             height: result.height,
+            name,
+            kind,
+            resourceType: result.resourceType,
+            bytes: result.bytes,
             cloudinaryPublicId: result.publicId,
             groupId: groupId ?? undefined,
           },
@@ -49,7 +58,10 @@ export function useAlbumUpload(albumId: string, groupId: string | null, onUpload
                   url: result.url,
                   width: result.width ?? null,
                   height: result.height ?? null,
-                  name: null,
+                  name: name ?? null,
+                  kind,
+                  resourceType: result.resourceType,
+                  bytes: result.bytes ?? 0,
                   cloudinaryPublicId: result.publicId ?? null,
                   createdBy: null,
                   createdAt: new Date(),
@@ -72,7 +84,14 @@ export function useAlbumUpload(albumId: string, groupId: string | null, onUpload
 
   function uploadFiles(files: FileList | File[]) {
     for (const file of Array.from(files)) {
-      if (file.type.startsWith("image/")) uploadOne(file);
+      const kind = classifyAlbumFile(file);
+      // A rejected file says so — silently dropping it (what the photos-only
+      // version did) looks like an upload that vanished.
+      if (!kind) {
+        toastManager.add({ title: `${file.name} can't go here`, description: ALBUM_TYPE_ERROR, type: "error" });
+        continue;
+      }
+      uploadOne(file, kind);
     }
   }
 

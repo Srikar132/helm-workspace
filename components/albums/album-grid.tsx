@@ -2,7 +2,20 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { AlertCircle, Copy, Download, FolderInput, FolderOutput, FolderX, ImageOff, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import {
+  AlertCircle,
+  Copy,
+  Download,
+  FileText,
+  FolderInput,
+  FolderOutput,
+  FolderX,
+  ImageOff,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,15 +31,16 @@ import {
 import type { PendingUpload } from "@/components/albums/use-album-upload";
 import { useAlbumImageMutations } from "@/components/albums/use-album-image-mutations";
 import type { AlbumGroupRow, AlbumImageRow } from "@/lib/actions/albums";
+import { albumThumbnailUrl, documentLabel, formatFileSize } from "@/lib/album-file";
 
-interface PhotoGridProps {
-  images: AlbumImageRow[];
+interface AlbumGridProps {
+  items: AlbumImageRow[];
   pendingUploads: PendingUpload[];
   onDismissPending: (id: string) => void;
   selectedIds: Set<string>;
   canWrite: boolean;
   onToggleSelect: (id: string) => void;
-  onOpenLightbox: (index: number) => void;
+  onOpen: (item: AlbumImageRow) => void;
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
@@ -40,14 +54,25 @@ interface PhotoGridProps {
   selectionMode: boolean;
 }
 
-export function PhotoGrid({
-  images,
+export function downloadItem(item: Pick<AlbumImageRow, "url" | "name">) {
+  const a = document.createElement("a");
+  a.href = item.url;
+  a.download = item.name ?? "";
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+export function AlbumGrid({
+  items,
   pendingUploads,
   onDismissPending,
   selectedIds,
   canWrite,
   onToggleSelect,
-  onOpenLightbox,
+  onOpen,
   hasMore,
   loadingMore,
   onLoadMore,
@@ -55,7 +80,7 @@ export function PhotoGrid({
   onRefresh,
   isSwitching,
   selectionMode,
-}: PhotoGridProps) {
+}: AlbumGridProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -71,7 +96,7 @@ export function PhotoGrid({
     observer.observe(el);
     return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasMore, images.length]);
+  }, [hasMore, items.length]);
 
   if (isSwitching) {
     return (
@@ -83,15 +108,19 @@ export function PhotoGrid({
     );
   }
 
-  if (images.length === 0 && pendingUploads.length === 0) {
+  if (items.length === 0 && pendingUploads.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.03] text-muted-foreground">
           <ImageOff className="h-6 w-6" />
         </div>
         <div>
-          <p className="text-[13px] text-muted-foreground">No photos here yet.</p>
-          {canWrite && <p className="mt-0.5 text-[12px] text-muted-foreground">Drop images anywhere or use &quot;Add photos&quot; above.</p>}
+          <p className="text-[13px] text-muted-foreground">Nothing here yet.</p>
+          {canWrite && (
+            <p className="mt-0.5 text-[12px] text-muted-foreground">
+              Drop images, PDFs or Word files anywhere, or use &quot;Add files&quot; above.
+            </p>
+          )}
         </div>
       </div>
     );
@@ -103,16 +132,16 @@ export function PhotoGrid({
         {pendingUploads.map((p) => (
           <PendingTile key={p.id} pending={p} onDismiss={() => onDismissPending(p.id)} />
         ))}
-        {images.map((img, i) => (
-          <PhotoTile
-            key={img.id}
-            image={img}
-            selected={selectedIds.has(img.id)}
+        {items.map((item) => (
+          <AlbumTile
+            key={item.id}
+            item={item}
+            selected={selectedIds.has(item.id)}
             selectionActive={selectionMode || selectedIds.size > 0}
             canWrite={canWrite}
             groups={groups}
-            onToggleSelect={() => onToggleSelect(img.id)}
-            onOpen={() => onOpenLightbox(i)}
+            onToggleSelect={() => onToggleSelect(item.id)}
+            onOpen={() => onOpen(item)}
             onChanged={onRefresh}
           />
         ))}
@@ -146,6 +175,7 @@ function PendingTile({ pending, onDismiss }: { pending: PendingUpload; onDismiss
           <div className="h-1 w-3/5 overflow-hidden rounded-full bg-white/[0.08]">
             <div className="h-full rounded-full bg-primary transition-[width] duration-150" style={{ width: `${pending.progress}%` }} />
           </div>
+          <p className="max-w-full truncate text-[11px] text-muted-foreground">{pending.name}</p>
           <p className="text-[11px] text-muted-foreground">Uploading… {pending.progress}%</p>
         </>
       )}
@@ -153,8 +183,8 @@ function PendingTile({ pending, onDismiss }: { pending: PendingUpload; onDismiss
   );
 }
 
-function PhotoTile({
-  image,
+function AlbumTile({
+  item,
   selected,
   selectionActive,
   canWrite,
@@ -163,7 +193,7 @@ function PhotoTile({
   onOpen,
   onChanged,
 }: {
-  image: AlbumImageRow;
+  item: AlbumImageRow;
   selected: boolean;
   selectionActive: boolean;
   canWrite: boolean;
@@ -173,27 +203,23 @@ function PhotoTile({
   onChanged: () => void;
 }) {
   const [renaming, setRenaming] = useState(false);
-  const [name, setName] = useState(image.name ?? "");
+  const [name, setName] = useState(item.name ?? "");
+  // A PDF's page-1 thumbnail is a Cloudinary transform that can fail on its
+  // own (delivery disabled, a PDF it refuses to rasterise) — falling back to
+  // the file-type card is the difference between a tile and a broken image.
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const { rename, duplicate, remove, move } = useAlbumImageMutations(onChanged);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: image.id,
-    data: { type: "photo", imageId: image.id, groupId: image.groupId },
+    id: item.id,
+    data: { type: "album-item", imageId: item.id, groupId: item.groupId },
     disabled: !canWrite,
   });
 
-  async function copyLink() {
-    await navigator.clipboard.writeText(image.url);
-  }
+  const isDocument = item.kind !== "image";
+  const thumbnail = thumbnailFailed ? null : albumThumbnailUrl(item);
 
-  function download() {
-    const a = document.createElement("a");
-    a.href = image.url;
-    a.download = image.name ?? "";
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  async function copyLink() {
+    await navigator.clipboard.writeText(item.url);
   }
 
   function handleClick() {
@@ -215,14 +241,27 @@ function PhotoTile({
       style={{ opacity: isDragging ? 0.3 : 1, touchAction: "none" }}
       className="group relative aspect-square overflow-hidden rounded-2xl border border-white/[0.06] bg-card shadow-sm transition-shadow hover:shadow-lg hover:shadow-black/30"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary external Cloudinary domain */}
-      <img
-        src={image.url}
-        alt={image.name ?? ""}
-        onClick={handleClick}
-        draggable={false}
-        className="h-full w-full cursor-pointer object-cover"
-      />
+      {thumbnail ? (
+        // eslint-disable-next-line @next/next/no-img-element -- arbitrary external Cloudinary domain
+        <img
+          src={thumbnail}
+          alt={item.name ?? ""}
+          onClick={handleClick}
+          onError={() => setThumbnailFailed(true)}
+          draggable={false}
+          className={`h-full w-full cursor-pointer object-cover ${isDocument ? "object-top" : ""}`}
+        />
+      ) : (
+        <div
+          onClick={handleClick}
+          className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#161b22] to-[#0e1117] p-3 text-center"
+        >
+          <FileText className={`h-8 w-8 ${item.kind === "word" ? "text-[#8ab4f8]" : "text-[#f28b82]"}`} />
+          <span className="font-mono text-[10.5px] text-muted-foreground">
+            {documentLabel(item.kind)} · {formatFileSize(item.bytes)}
+          </span>
+        </div>
+      )}
 
       <div
         className={`pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent transition-opacity ${
@@ -254,16 +293,16 @@ function PhotoTile({
               <DropdownMenuItem onClick={() => setRenaming(true)}>
                 <Pencil className="h-3.5 w-3.5" /> Rename
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => duplicate.mutate({ id: image.id })}>
+              <DropdownMenuItem onClick={() => duplicate.mutate({ id: item.id })}>
                 <FolderInput className="h-3.5 w-3.5" /> Duplicate
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void copyLink()}>
                 <Copy className="h-3.5 w-3.5" /> Copy link
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={download}>
+              <DropdownMenuItem onClick={() => downloadItem(item)}>
                 <Download className="h-3.5 w-3.5" /> Download
               </DropdownMenuItem>
-              {groups.filter((g) => g.id !== image.groupId).length > 0 && (
+              {groups.filter((g) => g.id !== item.groupId).length > 0 && (
                 <>
                   <div className="my-1 h-px bg-white/[0.06]" />
                   <DropdownMenuSub>
@@ -272,9 +311,9 @@ function PhotoTile({
                     </DropdownMenuSubTrigger>
                     <DropdownMenuSubContent>
                       {groups
-                        .filter((g) => g.id !== image.groupId)
+                        .filter((g) => g.id !== item.groupId)
                         .map((g) => (
-                          <DropdownMenuItem key={g.id} onClick={() => move.mutate({ id: image.id, groupId: g.id })}>
+                          <DropdownMenuItem key={g.id} onClick={() => move.mutate({ id: item.id, groupId: g.id })}>
                             {g.name}
                           </DropdownMenuItem>
                         ))}
@@ -282,8 +321,8 @@ function PhotoTile({
                   </DropdownMenuSub>
                 </>
               )}
-              {image.groupId && (
-                <DropdownMenuItem onClick={() => move.mutate({ id: image.id, groupId: null })}>
+              {item.groupId && (
+                <DropdownMenuItem onClick={() => move.mutate({ id: item.id, groupId: null })}>
                   <FolderX className="h-3.5 w-3.5" /> Remove from group
                 </DropdownMenuItem>
               )}
@@ -291,8 +330,8 @@ function PhotoTile({
               <DropdownMenuItem
                 variant="destructive"
                 onClick={() => {
-                  if (window.confirm("Delete this photo? This can't be undone.")) {
-                    remove.mutate(image.id);
+                  if (window.confirm("Delete this file? This can't be undone.")) {
+                    remove.mutate(item.id);
                   }
                 }}
               >
@@ -313,7 +352,7 @@ function PhotoTile({
             onChange={(e) => setName(e.target.value)}
             onBlur={() => {
               setRenaming(false);
-              rename.mutate({ id: image.id, name });
+              rename.mutate({ id: item.id, name });
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur();
@@ -324,9 +363,15 @@ function PhotoTile({
         </div>
       )}
 
-      {!renaming && image.name && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 truncate p-1.5 text-[11px] text-white opacity-0 transition-opacity group-hover:opacity-100">
-          {image.name}
+      {/* A document's name is pinned, not hover-only: it is the only thing
+          telling one PDF tile from another. */}
+      {!renaming && item.name && (
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/80 to-transparent p-1.5 text-[11px] text-white transition-opacity ${
+            isDocument ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+        >
+          {item.name}
         </div>
       )}
     </motion.div>
