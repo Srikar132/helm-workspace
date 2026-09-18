@@ -8,7 +8,6 @@ import { requireViewerContext } from "@/lib/workspace";
 import { getMyWidgetLayout } from "@/lib/actions/widgets";
 import { getDocProjectsByIds } from "@/lib/actions/docs";
 import { getAlbumPreviewsByIds } from "@/lib/actions/albums";
-import { getFileLibraryPreviewsByIds } from "@/lib/actions/files";
 import { getGmailStatus, getTodayMessages } from "@/lib/actions/gmail";
 import { getLandmarksByIds, getDefaultLandmark } from "@/lib/actions/landmarks";
 
@@ -68,25 +67,18 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
     .map((item) => (item.data as { landmarkId?: unknown } | undefined)?.landmarkId)
     .filter((id): id is string => typeof id === "string");
 
-  const libraryIds = initialLayout
-    .filter((item) => item.type === "files")
-    .map((item) => (item.data as { libraryId?: unknown } | undefined)?.libraryId)
-    .filter((id): id is string => typeof id === "string");
-
   // The HOME landmark rides along in the same wave — one extra indexed query
   // buys "canvas opens at the workspace's front door" with zero client-side
   // fetching.
   const [
     initialProjectSummaries,
     initialAlbumPreviews,
-    initialLibraryPreviews,
     initialLandmarks,
     initialGmailStatus,
     initialDefaultLandmark,
   ] = await Promise.all([
     getDocProjectsByIds(projectDocIds),
     getAlbumPreviewsByIds(albumIds),
-    getFileLibraryPreviewsByIds(libraryIds),
     getLandmarksByIds(initialLandmarksIds),
     getGmailStatus(),
     getDefaultLandmark(),
@@ -105,7 +97,6 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
       initialLayout={initialLayout}
       initialProjectSummaries={initialProjectSummaries}
       initialAlbumPreviews={initialAlbumPreviews}
-      initialLibraryPreviews={initialLibraryPreviews}
       initialGmailStatus={initialGmailStatus}
       initialGmailMessages={initialGmailMessages}
       initialLandmarks={initialLandmarks}

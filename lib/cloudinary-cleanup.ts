@@ -22,7 +22,7 @@ export async function enqueueCloudinaryCleanup(publicIds: string[]): Promise<Cle
 /**
  * A public id alone doesn't say which resource type the asset lives under, and
  * `destroy` silently reports "not found" when asked under the wrong one — so a
- * Word document (uploaded as `raw`, see lib/canvas/document-file.ts) would look
+ * Word document (uploaded as `raw`, see lib/album-file.ts) would look
  * like a successful cleanup while the asset stayed billable forever. The job
  * row has no resource-type column, so the type is discovered by asking: images
  * first, since almost everything here is one, then the others only when the

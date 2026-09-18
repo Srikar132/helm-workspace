@@ -16,6 +16,8 @@ export type AlbumRow = typeof albums.$inferSelect;
 export type AlbumGroupRow = typeof albumGroups.$inferSelect;
 export type AlbumImageRow = typeof albumImages.$inferSelect;
 
+/** An album holds photos AND documents (see lib/album-file.ts) — `images`
+ *  keeps its name here because the table and every query below still do. */
 export type AlbumPreview = { name: string; count: number; images: AlbumImageRow[] };
 
 /** Scopes an album lookup by the caller's org — the actual thing stopping
@@ -245,20 +247,26 @@ export async function deleteAlbumGroup(id: string, albumId: string): Promise<Act
   return {};
 }
 
-const addImageSchema = z.object({
+const addItemSchema = z.object({
   albumId: z.string().uuid(),
   url: z.string().url(),
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
+  name: z.string().trim().max(200).optional(),
+  kind: z.enum(["image", "pdf", "word"]).default("image"),
+  // Which Cloudinary resource type actually holds the asset — a Word file is
+  // "raw", everything else "image". Recorded per row so a delete is exact.
+  resourceType: z.enum(["image", "raw", "video"]).default("image"),
+  bytes: z.number().int().nonnegative().optional(),
   cloudinaryPublicId: z.string().optional(),
   groupId: z.string().uuid().optional(),
 });
 
-export async function addImageToAlbum(
-  input: z.infer<typeof addImageSchema>,
+export async function addItemToAlbum(
+  input: z.input<typeof addItemSchema>,
 ): Promise<{ error?: string; id?: string }> {
-  const parsed = addImageSchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid image." };
+  const parsed = addItemSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid file." };
 
   const viewer = await requireViewerContext();
   if (!canWriteEntries(viewer.role)) return { error: "View-only access." };
@@ -276,6 +284,10 @@ export async function addImageToAlbum(
       url: parsed.data.url,
       width: parsed.data.width ?? null,
       height: parsed.data.height ?? null,
+      name: parsed.data.name || null,
+      kind: parsed.data.kind,
+      resourceType: parsed.data.resourceType,
+      bytes: parsed.data.bytes ?? 0,
       cloudinaryPublicId: parsed.data.cloudinaryPublicId ?? null,
       createdBy: viewer.userId,
     })
@@ -381,6 +393,9 @@ export async function copyImageAction(id: string, targetGroupId?: string | null)
       width: row.width,
       height: row.height,
       name: row.name,
+      kind: row.kind,
+      resourceType: row.resourceType,
+      bytes: row.bytes,
       createdBy: viewer.userId,
     })
     .returning({ id: albumImages.id });
