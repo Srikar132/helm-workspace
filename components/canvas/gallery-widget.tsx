@@ -191,10 +191,10 @@ function GalleryCard({
   );
 }
 
-// The default "no photo yet" face for the front card — just the shaded
-// two-tone mountain; the sun is drawn separately (see PhotoStackIcon) so it
-// stays visible as a permanent corner badge even once a real photo fills
-// this card.
+// The "no photos yet" glyph, shown in the single front circle when a gallery
+// is completely empty — just the shaded two-tone mountain. The sun lives
+// separately now (see PhotoStackIcon's top-left badge, always on screen),
+// so it isn't duplicated here.
 function MountainGlyph() {
   return (
     <svg viewBox="0 0 100 100" className="h-full w-full" aria-hidden="true">
@@ -229,68 +229,74 @@ function StackBackdrop() {
   );
 }
 
-// Back-to-front stack positions (percentages of the icon), each slightly
-// bigger/less rotated than the one behind it — same layered layout as the
-// reference, but every slot is a real card now instead of just the front
-// one, so all three latest images actually show.
-const STACK_SLOTS = [
-  { left: "34%", top: "30%", size: "40%", rotate: "9deg", sun: false },
-  { left: "26%", top: "22%", size: "42%", rotate: "4deg", sun: false },
-  { left: "14%", top: "14%", size: "44%", rotate: "-7deg", sun: true },
+// Back-to-front circle positions, clustered at the icon's top-right corner
+// and overlapping horizontally like an avatar stack — oldest furthest left
+// (most covered), newest right at the corner (fully visible, on top). Size
+// stays as set; only the spacing/top inset moved so a 15%-wide circle
+// actually overlaps its neighbour instead of just grazing it.
+const CIRCLE_SLOTS = [
+  { top: "8%", right: "26%", size: "15%" },
+  { top: "8%", right: "17%", size: "15%" },
+  { top: "8%", right: "8%", size: "15%" },
 ] as const;
 
-function StackCard({
+function StackCircle({
   slot,
   image,
+  showGlyph,
 }: {
-  slot: (typeof STACK_SLOTS)[number];
+  slot: (typeof CIRCLE_SLOTS)[number];
   image: AlbumImageRow | null;
+  showGlyph: boolean;
 }) {
   const thumb = image ? albumStackThumbnailUrl(image) : null;
 
   return (
     <div
-      className={`absolute overflow-hidden rounded-[18%] shadow-md ${
-        thumb ? "bg-[#eaf2ff]" : "border border-white/30 bg-white/15"
+      className={`absolute overflow-hidden rounded-full shadow-md ring-2 ring-white/80 ${
+        thumb ? "bg-[#eaf2ff]" : "bg-white/15"
       }`}
-      style={{ left: slot.left, top: slot.top, width: slot.size, height: slot.size, transform: `rotate(${slot.rotate})` }}
+      style={{ top: slot.top, right: slot.right, width: slot.size, height: slot.size }}
     >
       {thumb ? (
-        <Image src={thumb} alt="" fill sizes="120px" loading="lazy" className="object-cover" />
+        <Image src={thumb} alt="" fill sizes="60px" loading="lazy" className="object-cover" />
       ) : image ? (
         <div className="flex h-full w-full items-center justify-center bg-[#eaf2ff]">
-          <FileText className="h-4 w-4 text-[#5b8def]" />
+          <FileText className="h-3 w-3 text-[#5b8def]" />
         </div>
-      ) : slot.sun ? (
+      ) : showGlyph ? (
         <MountainGlyph />
       ) : null}
-      {/* Sun badge — only the front card gets one, always on top of
-          whatever fills it (real photo or the empty-state glyph), so it
-          stays a fixed part of the icon's identity. */}
-      {slot.sun && <span className="absolute left-[10%] top-[10%] h-[18%] w-[18%] rounded-full bg-[#fbbf24] shadow-sm" />}
     </div>
   );
 }
 
 // Fixed square, independent of any source image's aspect ratio — this is
 // what keeps the widget's footprint constant regardless of what's inside
-// the album (the bug behind #19). Each card crops its photo via
+// the album (the bug behind #19). Each circle crops its photo via
 // object-cover, so nothing stretches the icon to fit a portrait/landscape.
 function PhotoStackIcon({ images }: { images: AlbumImageRow[] }) {
-  // Oldest-first so the newest image lands in the front (topmost, largest) slot.
+  // Oldest-first so the newest image lands in the front (rightmost, topmost) slot.
   const slotImages = [images[2] ?? null, images[1] ?? null, images[0] ?? null];
-  // Stack depth follows the actual count: a 1-photo album is just the front
-  // card, not a real photo propped in front of two empty ghost cards. The
-  // only time every slot renders is the true empty state, where the two
-  // "peeking" cards are what makes it read as an icon rather than a bare
-  // square — front card's glyph/sun still needs that backdrop.
-  const visible = images.length === 0 ? [0, 1, 2] : [0, 1, 2].filter((i) => slotImages[i] !== null);
+  // Stack depth follows the actual count — a 1-photo album is a single
+  // circle, not a real photo propped in front of empty ones. A fully empty
+  // gallery still gets one circle (the front slot) carrying the glyph, so
+  // the corner isn't just bare blue.
+  const visible = images.length === 0 ? [2] : [0, 1, 2].filter((i) => slotImages[i] !== null);
 
   return (
     <div className="relative aspect-square w-full overflow-hidden rounded-[20%] shadow-lg ring-1 ring-black/10">
       <StackBackdrop />
+      {/* Permanent sun badge, top-left corner — part of the icon's fixed
+          identity, on screen regardless of what's in the album. */}
+      <span className="absolute left-[8%] top-[8%] h-[14%] w-[14%] rounded-full bg-[#fbbf24] shadow-sm" />
       {visible.map((i) => (
-        <StackCard key={images[2 - i]?.id ?? `empty-${i}`} slot={STACK_SLOTS[i]} image={slotImages[i]} />
+        <StackCircle
+          key={images[2 - i]?.id ?? "empty"}
+          slot={CIRCLE_SLOTS[i]}
+          image={slotImages[i]}
+          showGlyph={i === 2}
+        />
       ))}
     </div>
   );
