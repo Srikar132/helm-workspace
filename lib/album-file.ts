@@ -100,6 +100,30 @@ export function albumThumbnailUrl(item: { kind: string; url: string }): string |
   return null;
 }
 
+/**
+ * A right-sized (not blurred) thumbnail for the canvas photo-stack icon (see
+ * gallery-widget.tsx) — this only ever renders at ~90px, so it asks Cloudinary
+ * for a small crop instead of shipping the full-resolution original, but it's
+ * still a sharp, real preview: the caller lazy-loads it, it doesn't fake one
+ * by blurring it. Null for Word (no thumbnail) same as albumThumbnailUrl.
+ */
+export function albumStackThumbnailUrl(item: { kind: string; url: string }): string | null {
+  if (item.kind === "word") return null;
+
+  const marker = "/upload/";
+  const at = item.url.indexOf(marker);
+  if (at === -1) return albumThumbnailUrl(item);
+
+  const head = item.url.slice(0, at + marker.length);
+  const tail = item.url.slice(at + marker.length);
+
+  if (item.kind === "pdf") {
+    const jpeg = tail.replace(/\.pdf(\?.*)?$/i, ".jpg$1");
+    return `${head}f_jpg,pg_1,w_180,q_auto,c_fill/${jpeg}`;
+  }
+  return `${head}w_180,q_auto,c_fill,f_auto/${tail}`;
+}
+
 export function documentLabel(kind: string): string {
   return kind === "word" ? "Word" : "PDF";
 }

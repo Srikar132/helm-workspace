@@ -235,7 +235,14 @@ export function WidgetNode({ id, data, selected }: NodeProps) {
   // The functional chrome (drag gating, cursors, pointer-events) still applies;
   // only the visual card treatment is skipped. The draft form paints its own
   // containment while it exists.
-  const chromeless = widgetData.widgetType === "landmark";
+  //
+  // A saved gallery is the same idea: it reads as an app icon (photo stack +
+  // name), not a card, so it drops the shell too. Only once it's saved,
+  // though — the draft "name this gallery" form still needs its own bordered
+  // surface, same as the draft states of bookmark/landmark keep theirs.
+  const chromeless =
+    widgetData.widgetType === "landmark" ||
+    (widgetData.widgetType === "gallery" && typeof widgetData.widgetData?.albumId === "string");
 
   if (widgetData.widgetType === "draw") {
     return <DrawWidget id={id} canWrite={widgetData.canWrite} widgetData={widgetData.widgetData} />;
