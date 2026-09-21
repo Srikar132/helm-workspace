@@ -85,9 +85,9 @@ export const NEW_WIDGET_DEFAULTS: Record<string, { width: number; height?: numbe
   // note widget, same reasoning: a draft form and a filled-out card can be
   // very different heights.
   "project-doc": { width: 320 },
-  // Height omitted — same reasoning as project-doc: a draft name form and
-  // a filled-out fan-card preview are different heights.
-  gallery: { width: 300 },
+  // Height omitted — same reasoning as project-doc: a draft name form needs
+  // real room, the saved card is a compact photo-stack icon + name.
+  gallery: { width: 220 },
   // Height omitted — the card grows by one line once a generated exercise gives
   // it a title, and nothing about it scrolls.
   code: { width: 320 },
