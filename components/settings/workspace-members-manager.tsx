@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, Loader2, Mail, Pencil, UserMinus, X } from "lucide-react";
+import { Clock, Loader2, Send, UserMinus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CopyInviteLinkButton } from "@/components/invitations/copy-invite-link-button";
 import { InviteEmailField } from "@/components/settings/invite-email-field";
-import { WorkspaceDangerZone } from "@/components/settings/workspace-danger-zone";
+import { SettingsCard } from "@/components/settings/settings-shell";
+import { CommentAvatar } from "@/components/canvas/comments/comment-avatar";
 import {
   cancelInvitationAction,
   getWorkspaceMembersData,
@@ -15,10 +15,11 @@ import {
   listPendingInvitationsAction,
   removeMemberAction,
 } from "@/lib/actions/members";
-import { renameWorkspaceAction } from "@/lib/actions/organization";
-import { ACCESS_LEVELS } from "@/lib/permissions";
+import { accessLevelLabel } from "@/lib/emails/invitation";
 import { unwrapAction } from "@/lib/query-utils";
 import { workspaceMembersKey } from "@/lib/query-keys";
+import { toastManager } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 
 type WorkspaceMembersData = Awaited<ReturnType<typeof getWorkspaceMembersData>>;
 type Member = WorkspaceMembersData["members"][number];
@@ -27,98 +28,77 @@ type Invitation = WorkspaceMembersData["invitations"][number];
 // Deliberately loose: real address validity is the server's call (and the
 // mail server's), this only decides whether the Invite button is worth enabling.
 function isValidEmail(value: string): boolean {
-  const trimmed = value.trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-function initialOf(name: string, email: string): string {
-  return (name.trim()[0] ?? email[0] ?? "?").toUpperCase();
+const ROLE_STYLES: Record<string, string> = {
+  owner: "border-primary/25 bg-primary/10 text-primary",
+  admin: "border-border bg-muted text-foreground",
+  member: "border-border text-muted-foreground",
+};
+
+function toastError(title: string) {
+  return (err: Error) => toastManager.add({ title, description: err.message, type: "error" });
 }
 
 interface WorkspaceMembersManagerProps {
   /** Identifies which workspace's cache to invalidate — see workspaceMembersKey. */
   slug: string;
-  organizationName: string;
   initialMembers: Member[];
   initialInvitations: Invitation[];
   canManage: boolean;
-  canDelete: boolean;
   viewerUserId: string;
 }
 
 export function WorkspaceMembersManager({
   slug,
-  organizationName,
   initialMembers,
   initialInvitations,
   canManage,
-  canDelete,
   viewerUserId,
 }: WorkspaceMembersManagerProps) {
-  const router = useRouter();
   const queryClient = useQueryClient();
-  const [name, setName] = useState(organizationName);
   const [members, setMembers] = useState(initialMembers);
   const [invitations, setInvitations] = useState(initialInvitations);
   const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
   // Keyed by workspace (lib/query-keys.ts) so one workspace's cached members
   // can never be served for another.
-  function invalidateMembers() {
-    void queryClient.invalidateQueries({ queryKey: workspaceMembersKey(slug) });
-  }
+  const invalidateMembers = () => void queryClient.invalidateQueries({ queryKey: workspaceMembersKey(slug) });
 
-  const renameMutation = useMutation({
-    mutationFn: () => {
+  // Each control watches its OWN mutation — one shared pending flag put every
+  // button on the page into a spinner while a single invite was sending.
+  const { mutate: invite, isPending: inviting } = useMutation({
+    mutationFn: (address: string) => {
       const fd = new FormData();
-      fd.set("name", name.trim());
-      return unwrapAction(renameWorkspaceAction({}, fd));
-    },
-    onSuccess: () => {
-      // Without this the cached members entry — which is where the canvas widget
-      // reads organizationName from, including the name the delete dialog asks
-      // you to retype — kept the pre-rename value.
-      invalidateMembers();
-      // The workspace switcher elsewhere on screen reads better-auth's own
-      // client-side org cache, which this server action doesn't touch —
-      // a soft refresh re-runs server components so this widget (and
-      // anything else server-rendered) picks up the new name immediately.
-      router.refresh();
-    },
-    onError: (err) => setError(err.message),
-  });
-
-  const inviteMutation = useMutation({
-    mutationFn: () => {
-      const fd = new FormData();
-      fd.set("email", email.trim());
+      fd.set("email", address);
       fd.set("accessLevel", "view");
       return unwrapAction(inviteMemberAction({}, fd));
     },
-    onSuccess: async () => {
+    onSuccess: async (_res, address) => {
       setEmail("");
       const { invitations: fresh } = await listPendingInvitationsAction();
       setInvitations(fresh);
       invalidateMembers();
+      toastManager.add({ title: "Invitation sent", description: address, type: "success" });
     },
-    onError: (err) => setError(err.message),
+    onError: toastError("Invitation not sent"),
   });
 
-  const removeMemberMutation = useMutation({
-    mutationFn: (memberIdOrEmail: string) => {
+  const { mutate: removeMember, isPending: removing, variables: removingId } = useMutation({
+    mutationFn: (memberId: string) => {
       const fd = new FormData();
-      fd.set("memberIdOrEmail", memberIdOrEmail);
+      fd.set("memberIdOrEmail", memberId);
       return unwrapAction(removeMemberAction({}, fd));
     },
-    onSuccess: (_res, memberIdOrEmail) => {
-      setMembers((prev) => prev.filter((m) => m.id !== memberIdOrEmail));
+    onSuccess: (_res, memberId) => {
+      setMembers((prev) => prev.filter((m) => m.id !== memberId));
       invalidateMembers();
     },
-    onError: (err) => setError(err.message),
+    onError: toastError("Member not removed"),
   });
 
-  const cancelInviteMutation = useMutation({
+  const { mutate: cancelInvite, isPending: cancelling, variables: cancellingId } = useMutation({
     mutationFn: (invitationId: string) => {
       const fd = new FormData();
       fd.set("invitationId", invitationId);
@@ -128,200 +108,125 @@ export function WorkspaceMembersManager({
       setInvitations((prev) => prev.filter((i) => i.id !== invitationId));
       invalidateMembers();
     },
-    onError: (err) => setError(err.message),
+    onError: toastError("Invitation not cancelled"),
   });
 
-  // Each control watches its OWN mutation. A single OR'd flag meant sending an
-  // invite put every button in the widget — Save, Remove, Cancel, Delete — into
-  // a spinner, which reads as "the whole panel is broken" rather than "your
-  // invite is sending".
-
-  const canInvite = isValidEmail(email) && !inviteMutation.isPending;
-
-  function handleRename() {
-    setError(null);
-    renameMutation.mutate();
-  }
-
-  function handleInvite() {
-    setError(null);
-    inviteMutation.mutate();
-  }
-
-  function handleRemoveMember(memberIdOrEmail: string) {
-    setError(null);
-    removeMemberMutation.mutate(memberIdOrEmail);
-  }
-
-  function handleCancelInvite(invitationId: string) {
-    setError(null);
-    cancelInviteMutation.mutate(invitationId);
-  }
+  const canInvite = isValidEmail(email) && !inviting;
+  const submitInvite = () => canInvite && invite(email.trim());
 
   return (
-    <div className="flex flex-col gap-6">
-      {error && (
-        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12.5px] text-destructive">
-          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
+    <SettingsCard>
       {canManage && (
-        <div className="flex flex-col gap-1.5">
-          <h3 className="text-[11.5px] font-medium uppercase tracking-wide text-muted-foreground">Workspace name</h3>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="h-9 flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 text-[13px] text-foreground outline-none focus:border-primary/50"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              onClick={handleRename}
-              disabled={renameMutation.isPending || !name.trim() || name.trim() === organizationName}
-              className="shrink-0 gap-1.5 border-white/[0.08] bg-white/[0.04] px-3.5 text-[12.5px] font-medium text-foreground hover:bg-white/10"
-            >
-              {renameMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Pencil className="h-3.5 w-3.5" />
-              )}
-              Save
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {canManage && (
-        <div className="flex flex-col gap-2">
-          <h3 className="text-[11.5px] font-medium uppercase tracking-wide text-muted-foreground">Invite</h3>
-          {/* A real form so Enter submits, and flex-wrap so the Invite button
-              drops to its own line instead of being pushed past the card's
-              overflow clip in a narrow canvas widget. */}
+        <div className="border-b border-border p-4 sm:p-5">
+          <label htmlFor="invite-email" className="mb-1.5 block text-[13px] font-medium text-foreground">
+            Invite by email
+          </label>
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (canInvite) handleInvite();
+              submitInvite();
             }}
-            className="flex flex-wrap items-center gap-2"
+            className="flex flex-col gap-2 sm:flex-row"
           >
-            <InviteEmailField
-              slug={slug}
-              value={email}
-              onChange={setEmail}
-              onSubmit={() => {
-                if (canInvite) handleInvite();
-              }}
-              disabled={inviteMutation.isPending}
-            />
-            <select
-              disabled
-              title="Only view-only invites are supported for now"
-              className="h-9 shrink-0 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-[12.5px] text-muted-foreground"
-            >
-              {ACCESS_LEVELS.map((level) => (
-                <option key={level.value} disabled={!level.enabled}>
-                  {level.label}
-                </option>
-              ))}
-            </select>
-            <Button
-              type="submit"
-              variant="default"
-              size="lg"
-              disabled={!canInvite}
-              className="shrink-0 gap-1.5 px-3.5 text-[12.5px] font-semibold active:scale-[0.98]"
-            >
-              {inviteMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Mail className="h-3.5 w-3.5" />
-              )}
-              Invite
+            <InviteEmailField id="invite-email" slug={slug} value={email} onChange={setEmail} onSubmit={submitInvite} disabled={inviting} />
+            <Button type="submit" variant="default" shape="rounded" disabled={!canInvite} className="h-10 gap-1.5 px-4">
+              {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Send invite
             </Button>
           </form>
-          {email.trim().length > 0 && !isValidEmail(email) && (
-            <p className="text-[11.5px] text-muted-foreground">Enter a full email address to invite.</p>
-          )}
+          <p className="mt-2 text-[12.5px] text-muted-foreground">
+            {email.trim().length > 0 && !isValidEmail(email)
+              ? "Enter a full email address."
+              : "Invited people can view everything in this workspace and join comment threads. Edit access is coming later."}
+          </p>
         </div>
       )}
 
       {canManage && invitations.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <h3 className="text-[11.5px] font-medium uppercase tracking-wide text-muted-foreground">Pending invites</h3>
-          {invitations.map((invite) => (
-            <div
-              key={invite.id}
-              className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2"
-            >
-              <span className="truncate text-[13px] text-muted-foreground">{invite.email}</span>
-              <div className="flex shrink-0 items-center gap-1">
-                <CopyInviteLinkButton invitationId={invite.id} />
+        <div className="border-b border-border">
+          <h3 className="px-4 pb-1 pt-3.5 text-[12.5px] font-medium text-muted-foreground sm:px-5">
+            Waiting to accept ({invitations.length})
+          </h3>
+          <ul>
+            {invitations.map((inv) => (
+              <li key={inv.id} className="flex items-center gap-3 px-4 py-2.5 sm:px-5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dashed border-border text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13.5px] text-foreground">{inv.email}</div>
+                  <div className="text-[12px] text-muted-foreground">Invited as {accessLevelLabel(inv.role)}</div>
+                </div>
+                <CopyInviteLinkButton invitationId={inv.id} />
                 <Button
                   type="button"
-                  variant="destructive"
+                  variant="ghost"
                   size="icon-sm"
-                  onClick={() => handleCancelInvite(invite.id)}
-                  disabled={cancelInviteMutation.isPending}
-                  title="Cancel invite"
-                  className="rounded-full"
+                  shape="pill"
+                  onClick={() => cancelInvite(inv.id)}
+                  disabled={cancelling && cancellingId === inv.id}
+                  title="Cancel invitation"
+                  aria-label={`Cancel invitation for ${inv.email}`}
+                  className="text-muted-foreground hover:text-destructive"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  {cancelling && cancellingId === inv.id ? <Loader2 className="animate-spin" /> : <X />}
                 </Button>
-              </div>
-            </div>
-          ))}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <h3 className="text-[11.5px] font-medium uppercase tracking-wide text-muted-foreground">
-          {members.length} member{members.length === 1 ? "" : "s"}
-        </h3>
-        {members.map((member) => {
-          const isSelf = member.userId === viewerUserId;
-          const canRemove = canManage && !isSelf && member.role !== "owner";
+      <ul className="divide-y divide-border">
+        {members.map((m) => {
+          const isSelf = m.userId === viewerUserId;
+          const canRemove = canManage && !isSelf && m.role !== "owner";
+          const pending = removing && removingId === m.id;
           return (
-            <div
-              key={member.id}
-              className="flex items-center gap-3 rounded-xl border border-white/[0.06] px-3 py-2.5"
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[12.5px] font-semibold text-primary">
-                {initialOf(member.user.name, member.user.email)}
-              </div>
+            <li key={m.id} className={cn("flex items-center gap-3 px-4 py-3 sm:px-5", pending && "opacity-60")}>
+              <CommentAvatar name={m.user.name} image={m.user.image ?? null} className="h-9 w-9 text-[13px]" />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium text-foreground">
-                  {member.user.name}
-                  {isSelf && <span className="ml-1.5 text-[11.5px] font-normal text-muted-foreground">(you)</span>}
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-[13.5px] font-medium text-foreground">{m.user.name}</span>
+                  {isSelf && (
+                    <span className="shrink-0 rounded-full bg-muted px-1.5 py-px text-[11px] font-medium text-muted-foreground">
+                      You
+                    </span>
+                  )}
                 </div>
-                <div className="truncate text-[11.5px] text-muted-foreground">{member.user.email}</div>
+                <div className="truncate text-[12.5px] text-muted-foreground">{m.user.email}</div>
               </div>
-              <span className="shrink-0 rounded-full border border-white/[0.06] px-2 py-0.5 text-[11px] capitalize text-muted-foreground">
-                {member.role}
+              <span
+                className={cn(
+                  "shrink-0 rounded-full border px-2 py-0.5 text-[11.5px] font-medium sm:px-2.5 sm:text-[12px]",
+                  ROLE_STYLES[m.role] ?? ROLE_STYLES.member,
+                )}
+              >
+                {accessLevelLabel(m.role)}
               </span>
-              {canRemove && (
+              {canRemove ? (
                 <Button
                   type="button"
-                  variant="destructive"
+                  variant="ghost"
                   size="icon-sm"
-                  onClick={() => handleRemoveMember(member.id)}
-                  disabled={removeMemberMutation.isPending}
-                  title="Remove member"
-                  className="rounded-full"
+                  shape="pill"
+                  onClick={() => {
+                    if (window.confirm(`Remove ${m.user.name} from this workspace?`)) removeMember(m.id);
+                  }}
+                  disabled={pending}
+                  title="Remove from workspace"
+                  aria-label={`Remove ${m.user.name}`}
+                  className="text-muted-foreground hover:text-destructive"
                 >
-                  <UserMinus className="h-3.5 w-3.5" />
+                  {pending ? <Loader2 className="animate-spin" /> : <UserMinus />}
                 </Button>
+              ) : (
+                canManage && <span aria-hidden className="w-8 shrink-0" />
               )}
-            </div>
+            </li>
           );
         })}
-      </div>
-
-      {canDelete && <WorkspaceDangerZone organizationName={organizationName} onError={setError} />}
-    </div>
+      </ul>
+    </SettingsCard>
   );
 }

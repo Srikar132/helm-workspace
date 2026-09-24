@@ -20,6 +20,8 @@ interface InviteEmailFieldProps {
   /** Enter in the field submits, same as the Invite button. */
   onSubmit: () => void;
   disabled: boolean;
+  /** For an external <label htmlFor>. */
+  id?: string;
 }
 
 /**
@@ -27,7 +29,7 @@ interface InviteEmailFieldProps {
  * workspace with (see suggestInviteEmailsAction for why it isn't a global user
  * search). Anyone else can still be invited by typing their address in full.
  */
-export function InviteEmailField({ slug, value, onChange, onSubmit, disabled }: InviteEmailFieldProps) {
+export function InviteEmailField({ slug, value, onChange, onSubmit, disabled, id }: InviteEmailFieldProps) {
   const listboxId = useId();
   const [debounced, setDebounced] = useState(value);
   const [open, setOpen] = useState(false);
@@ -95,6 +97,7 @@ export function InviteEmailField({ slug, value, onChange, onSubmit, disabled }: 
   return (
     <div ref={containerRef} className="relative min-w-0 flex-1">
       <input
+        id={id}
         type="email"
         placeholder="teammate@company.com"
         value={value}
@@ -111,14 +114,14 @@ export function InviteEmailField({ slug, value, onChange, onSubmit, disabled }: 
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
-        className="h-9 w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 text-[13px] text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 disabled:opacity-50"
+        className="h-10 w-full rounded-xl border border-input bg-background px-3.5 text-[13.5px] text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-ring focus:ring-3 focus:ring-ring/30 disabled:opacity-50 dark:bg-input/30"
       />
 
       {showList && (
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-white/[0.08] bg-[#131314] shadow-2xl"
+          className="absolute inset-x-0 top-full z-20 mt-1.5 overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl"
         >
           {suggestions.map((suggestion, index) => (
             <li key={suggestion.email} role="option" aria-selected={index === activeIndex}>
@@ -132,7 +135,7 @@ export function InviteEmailField({ slug, value, onChange, onSubmit, disabled }: 
                 }}
                 onMouseEnter={() => setActiveIndex(index)}
                 className={`flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left ${
-                  index === activeIndex ? "bg-white/[0.08]" : "hover:bg-white/[0.06]"
+                  index === activeIndex ? "bg-accent" : "hover:bg-accent/60"
                 }`}
               >
                 <span className="truncate text-[12.5px] text-foreground">{suggestion.email}</span>
