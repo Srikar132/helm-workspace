@@ -37,15 +37,20 @@ interface DocsProjectViewProps {
   project: DocProjectSummary;
   initialPages: DocPageRow[];
   canWrite: boolean;
+  /** From `?page=` — where a notification link wants to land. */
+  initialPageId?: string;
 }
 
-export function DocsProjectView({ slug, project, initialPages, canWrite }: DocsProjectViewProps) {
+export function DocsProjectView({ slug, project, initialPages, canWrite, initialPageId }: DocsProjectViewProps) {
   const [pages, setPages] = useState<DocPageRow[]>(initialPages);
   // "Which page is in view" — driven by scroll position (IntersectionObserver
   // below), not by a click swapping content. All pages render at once, like
   // scrolling through a real multi-page document; the sidebar just tracks
   // and jumps, it doesn't gate what's rendered.
-  const [activePageId, setActivePageId] = useState<string | null>(initialPages[0]?.id ?? null);
+  // A notification link lands on a specific page (?page=); an id that isn't
+  // one of this project's pages falls back to the first, like a plain open.
+  const linkedPageId = initialPages.some((p) => p.id === initialPageId) ? initialPageId! : null;
+  const [activePageId, setActivePageId] = useState<string | null>(linkedPageId ?? initialPages[0]?.id ?? null);
   const [isPublic, setIsPublic] = useState(project.isPublic);
   const [shareCopied, setShareCopied] = useState(false);
   // Sidebar is a slide-in drawer below md; the md:translate-x-0 override
@@ -70,6 +75,14 @@ export function DocsProjectView({ slug, project, initialPages, canWrite }: DocsP
 
   const pageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const pendingScrollToId = useRef<string | null>(null);
+
+  // Mount-only: bring the linked page into view once its sheet has a ref.
+  const scrolledToLinkedPage = useRef(false);
+  useEffect(() => {
+    if (!linkedPageId || scrolledToLinkedPage.current) return;
+    scrolledToLinkedPage.current = true;
+    pageRefs.current.get(linkedPageId)?.scrollIntoView({ block: "start" });
+  }, [linkedPageId]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -365,6 +378,7 @@ export function DocsProjectView({ slug, project, initialPages, canWrite }: DocsP
                   }}
                   onChange={(json) => handlePageContentChange(page.id, json)}
                   onFocusEditor={setActiveEditor}
+                  slug={slug}
                 />
               </div>
             ))}

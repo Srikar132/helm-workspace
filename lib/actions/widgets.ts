@@ -9,6 +9,8 @@ import { requireViewerContext } from "@/lib/workspace";
 import { mergeWithDefaults } from "@/components/canvas/widget-registry";
 import { canWriteWidgets } from "@/lib/permissions";
 import { checkDragRateLimit, checkRateLimit } from "@/lib/rate-limit";
+import { extractMentionIds } from "@/lib/mentions";
+import { notifyNewMentions, widgetHref } from "@/lib/notifications";
 
 const MAX_WIDGETS_PER_WORKSPACE = 64;
 
@@ -199,12 +201,43 @@ export async function updateWidgetDataAction(id: string, data: Record<string, un
   const rateLimit = await checkDragRateLimit(`update-widget-data:${viewer.userId}`);
   if (!rateLimit.success) return { error: rateLimit.error };
 
+  // Mentions only live in a note's `content`. The previous value is read only
+  // when the incoming one mentions anyone, so the common keystroke save costs
+  // no extra query. Racing saves can both see a mention as "new" — the dedupe
+  // key collapses them, so that is a wasted insert, never a duplicate.
+  const nextContent = data.content;
+  const prev =
+    extractMentionIds(nextContent).length > 0
+      ? (
+          await db
+            .select({ type: widgets.type, data: widgets.data })
+            .from(widgets)
+            .where(widgetWhere(parsedId.data, viewer.organizationId))
+            .limit(1)
+        )[0]
+      : undefined;
+
   const updated = await db
     .update(widgets)
     .set({ data, updatedAt: new Date() })
     .where(widgetWhere(parsedId.data, viewer.organizationId))
     .returning({ id: widgets.id });
   if (updated.length === 0) return { error: MISSING_WIDGET_ERROR };
+
+  if (prev?.type === "markdown") {
+    after(() =>
+      notifyNewMentions({
+        organizationId: viewer.organizationId,
+        actorId: viewer.userId,
+        sourceType: "widget",
+        sourceId: parsedId.data,
+        prev: prev.data?.content,
+        next: nextContent,
+        title: "a note",
+        href: (slug) => widgetHref(slug, parsedId.data),
+      }),
+    );
+  }
 
   return {};
 }

@@ -4,7 +4,8 @@ import "@xyflow/react/dist/style.css";
 import { ReactFlow, ReactFlowProvider, useReactFlow, type ReactFlowInstance } from "@xyflow/react";
 
 import { DndContext, DragOverlay } from "@dnd-kit/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { WidgetNode, type WidgetNodeData } from "@/components/canvas/widget-node";
 import { WidgetToolbar, ToolbarDragGhost } from "@/components/canvas/widget-toolbar";
@@ -125,17 +126,36 @@ function CanvasInner({
     [nodes, setCenter],
   );
 
-  // Open at HOME: decided once, at flow init — before this ran in a mount
-  // effect that raced xyflow's own fitView application (fitView fired after
-  // us and won, so the canvas opened fitted instead of centered on HOME).
-  // No default landmark (or its pin is gone) → fall back to fitting widgets.
+  // `?focus=<widgetId>` — where a notification link wants to land.
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const focusWidgetId = searchParams.get("focus");
+  const flowReady = useRef(false);
+
+  // Consumed once, then dropped from the URL so a reload doesn't yank the view
+  // back to it. Native replaceState, not router.replace: this route is
+  // force-dynamic, and a router navigation would refetch the whole page
+  // payload (board, mail) just to drop a query param.
+  const clearFocusParam = useCallback(() => {
+    window.history.replaceState(null, "", pathname);
+  }, [pathname]);
+
+  // Open at the focused widget, else HOME: decided once, at flow init — before
+  // this ran in a mount effect that raced xyflow's own fitView application
+  // (fitView fired after us and won, so the canvas opened fitted instead of
+  // centered on HOME). No target (or its widget/pin is gone) → fit widgets.
   const handleFlowInit = useCallback(
     (instance: ReactFlowInstance) => {
-      const target = initialDefaultLandmark
-        ? instance
-          .getNodes()
-          .find((n) => (n.data as unknown as WidgetNodeData).widgetData?.landmarkId === initialDefaultLandmark.id)
-        : undefined;
+      flowReady.current = true;
+      const focused = focusWidgetId ? instance.getNode(focusWidgetId) : undefined;
+      if (focusWidgetId) clearFocusParam();
+      const target =
+        focused ??
+        (initialDefaultLandmark
+          ? instance
+            .getNodes()
+            .find((n) => (n.data as unknown as WidgetNodeData).widgetData?.landmarkId === initialDefaultLandmark.id)
+          : undefined);
       if (!target) {
         instance.fitView({ padding: 0.15 });
         return;
@@ -144,8 +164,27 @@ function CanvasInner({
       const height = target.measured?.height ?? target.height ?? 150;
       instance.setCenter(target.position.x + width / 2, target.position.y + height / 2, { zoom: 1 });
     },
+    // Init-time only by design: later ?focus changes go through the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [initialDefaultLandmark],
   );
+
+  // A notification clicked while this canvas is already open: the flow is
+  // initialised, so fly there (same maths as flyToLandmark). Before init this
+  // does nothing — handleFlowInit owns the first landing.
+  useEffect(() => {
+    if (!focusWidgetId || !flowReady.current) return;
+    const node = nodes.find((n) => n.id === focusWidgetId);
+    if (node) {
+      const width = node.measured?.width ?? node.width ?? 150;
+      const height = node.measured?.height ?? node.height ?? 150;
+      setCenter(node.position.x + width / 2, node.position.y + height / 2, { zoom: 1, duration: 400 });
+    }
+    clearFocusParam();
+    // Keyed on the param alone: re-running on every node change would re-centre
+    // on each drag.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusWidgetId]);
 
   const { dndSensors, draggingType, handleDragStart, handleDragEnd } = useToolbarDrag({
     addWidget,

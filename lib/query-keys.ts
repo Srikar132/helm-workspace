@@ -28,3 +28,20 @@ export function boardKey(slug: string, search: string, workType: string) {
 export function inviteSuggestionsKey(slug: string, query: string) {
   return ["inviteSuggestions", slug, query] as const;
 }
+
+/** The `@` picker's member list for the active workspace. */
+export function mentionableMembersKey(slug: string) {
+  return ["mentionableMembers", slug] as const;
+}
+
+/** Per-USER, not per-workspace: the bell lists the viewer's notifications from
+ *  every workspace they're in, so the workspace isn't part of the identity.
+ *  That's also why these are excluded from localStorage persistence in
+ *  app/providers.tsx — a static key would otherwise hydrate one account's
+ *  notifications into the next account signed in on the same browser. One
+ *  root so a single invalidate covers the count and the list. */
+export const notificationKeys = {
+  all: ["notifications"] as const,
+  count: () => [...notificationKeys.all, "count"] as const,
+  list: () => [...notificationKeys.all, "list"] as const,
+};

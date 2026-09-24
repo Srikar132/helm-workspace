@@ -11,6 +11,7 @@ import { TableCell } from "@tiptap/extension-table-cell";
 import { TaskList } from "@tiptap/extension-task-list";
 import { TaskItem } from "@tiptap/extension-task-item";
 import { Markdown } from "@tiptap/markdown";
+import { Mention, type MentionOptions } from "@tiptap/extension-mention";
 import type { Extensions } from "@tiptap/core";
 import { FontSize } from "@/lib/tiptap/font-size";
 import { MarkdownPasteHandler } from "@/lib/tiptap/markdown-paste";
@@ -26,7 +27,16 @@ import { MarkdownPasteHandler } from "@/lib/tiptap/markdown-paste";
  * could pass against a list the app didn't actually use — so the list lives
  * here and nobody re-types it.
  */
-export function createNoteExtensions({ placeholder = "Write something…" }: { placeholder?: string } = {}): Extensions {
+export function createNoteExtensions({
+  placeholder = "Write something…",
+  mentionSuggestion,
+}: {
+  placeholder?: string;
+  /** The `@` picker (lib/tiptap/mention-suggestion.tsx). Omitted where nobody
+   *  can pick — read-only, the public share page, tests — the node stays in
+   *  the schema either way, so stored mentions always render. */
+  mentionSuggestion?: MentionOptions["suggestion"];
+} = {}): Extensions {
   return [
     StarterKit,
     // TextStyle is the mark Color/FontSize hang their attributes off; without
@@ -42,6 +52,12 @@ export function createNoteExtensions({ placeholder = "Write something…" }: { p
     TableCell,
     TaskList,
     TaskItem.configure({ nested: true }),
+    // Id-carrying @mention — the only thing the server reads when deciding
+    // who to notify (lib/mentions.ts). Its markdown spec keeps id + label.
+    Mention.configure({
+      HTMLAttributes: { class: "mention" },
+      suggestion: mentionSuggestion ?? { items: () => [] },
+    }),
     // Markdown parse/serialize. Storage stays ProseMirror JSON — this only
     // engages when a caller explicitly passes contentType: "markdown".
     // breaks: a single newline is a hard break, not a paragraph continuation,

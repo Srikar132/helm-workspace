@@ -102,7 +102,7 @@ function renderWidgetBody(id: string, data: WidgetNodeData): React.ReactNode {
         />
       );
     case "markdown":
-      return <MarkdownWidget id={id} initialContent={data.widgetData} canWrite={data.canWrite} />;
+      return <MarkdownWidget id={id} initialContent={data.widgetData} canWrite={data.canWrite} slug={data.slug} />;
     case "media":
       return <MediaWidget id={id} data={data.widgetData} canWrite={data.canWrite} />;
     case "project-doc": {

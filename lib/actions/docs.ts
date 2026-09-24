@@ -1,11 +1,14 @@
 "use server";
 
 import { revalidateTag, unstable_cache } from "next/cache";
+import { after } from "next/server";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, docProjects, docPages, type DocLink } from "@/lib/db";
 import { requireViewerContext } from "@/lib/workspace";
 import { canWriteEntries } from "@/lib/permissions";
+import { extractMentionIds, redactMentions } from "@/lib/mentions";
+import { docPageHref, notifyNewMentions } from "@/lib/notifications";
 
 export type DocActionState = { error?: string };
 export type CreateDocProjectResult = { error?: string; id?: string };
@@ -194,7 +197,7 @@ export async function updateDocPage(
   }
 
   const [page] = await db
-    .select({ docProjectId: docPages.docProjectId })
+    .select({ docProjectId: docPages.docProjectId, title: docPages.title, content: docPages.content })
     .from(docPages)
     .where(eq(docPages.id, id))
     .limit(1);
@@ -209,6 +212,23 @@ export async function updateDocPage(
     .update(docPages)
     .set({ ...patch, updatedAt: new Date() })
     .where(eq(docPages.id, id));
+
+  if (patch.content && extractMentionIds(patch.content).length > 0) {
+    const docProjectId = page.docProjectId;
+    const title = `${patch.title ?? page.title} · ${owned.title}`;
+    after(() =>
+      notifyNewMentions({
+        organizationId: viewer.organizationId,
+        actorId: viewer.userId,
+        sourceType: "doc_page",
+        sourceId: id,
+        prev: page.content,
+        next: patch.content,
+        title,
+        href: (slug) => docPageHref(slug, docProjectId, id),
+      }),
+    );
+  }
 
   revalidateTag(`doc-pages:${page.docProjectId}`, { expire: 0 });
   return {};
@@ -305,7 +325,8 @@ export async function getDocProjectByShareToken(token: string) {
         .from(docPages)
         .where(eq(docPages.docProjectId, project.id))
         .orderBy(asc(docPages.position));
-      return { project, pages };
+      // Public, unauthenticated page: who was mentioned is workspace-private.
+      return { project, pages: pages.map((page) => ({ ...page, content: redactMentions(page.content) })) };
     },
     ["doc-share", token],
     { tags: [`doc-share:${token}`], revalidate: 300 },

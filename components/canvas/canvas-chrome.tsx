@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, LogOut, Plug, Plus, Settings } from "lucide-react";
 import { authClient, useActiveOrganization, useListOrganizations, useSession } from "@/lib/auth-client";
+import { NotificationBell } from "@/components/canvas/notification-bell";
 
 function useClickOutside(onOutside: () => void) {
   const ref = useRef<HTMLDivElement>(null);
@@ -14,7 +15,7 @@ function useClickOutside(onOutside: () => void) {
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [onOutside]);
+  }, [onOutside]); 
 
   return ref;
 }
@@ -108,7 +109,7 @@ function UserMenu() {
       >
         {user?.image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={user.image} alt={user.name} className="h-full w-full object-cover" />
+          <img src={user.image} alt={user.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
         ) : (
           <span className="text-[13px] font-medium text-[#e8eaed]">{initial}</span>
         )}
@@ -177,7 +178,10 @@ export function CanvasChrome() {
       }}
     >
       <WorkspaceSwitcher />
-      <UserMenu />
+      <div className="flex items-center gap-2">
+        <NotificationBell />
+        <UserMenu />
+      </div>
     </div>
   );
 }
