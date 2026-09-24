@@ -19,6 +19,12 @@ export const user = pgTable("user", {
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
+  // App-owned, not a better-auth field: re-running the better-auth schema
+  // generator will drop it, so carry it over by hand.
+  lastActiveOrganizationId: text("last_active_organization_id").references(
+    () => organization.id,
+    { onDelete: "set null" },
+  ),
 });
 
 export const session = pgTable(

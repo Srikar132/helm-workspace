@@ -19,7 +19,7 @@ export default async function SignInPage({
   searchParams: Promise<{ callbackURL?: string; invited?: string }>;
 }) {
   const { callbackURL: requestedCallback, invited } = await searchParams;
-  const callbackURL = safeInternalPath(requestedCallback, "/workspaces");
+  const callbackURL = safeInternalPath(requestedCallback, "/");
 
   const session = await auth.api.getSession({ headers: await headers() });
   if (session) {

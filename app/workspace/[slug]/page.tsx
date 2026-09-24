@@ -1,10 +1,11 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { auth } from "@/lib/better-auth";
 import { canWriteWidgets } from "@/lib/permissions";
 import { WorkspaceDashboard } from "@/components/workspace-dashboard";
 import { getBoardData } from "@/lib/worklog";
-import { requireViewerContext } from "@/lib/workspace";
+import { rememberLastWorkspace, requireViewerContext } from "@/lib/workspace";
 import { getMyWidgetLayout } from "@/lib/actions/widgets";
 import { getDocProjectsByIds } from "@/lib/actions/docs";
 import { getAlbumPreviewsByIds } from "@/lib/actions/albums";
@@ -42,6 +43,8 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
   }
 
   const viewer = await requireViewerContext();
+
+  after(() => rememberLastWorkspace(viewer.userId, viewer.organizationId));
 
   // Wave 1: independent of each other. No `date` — the board is a single
   // unified view across all dates, not scoped to today.
