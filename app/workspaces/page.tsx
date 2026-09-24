@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Check, Plus } from "lucide-react";
 import { auth } from "@/lib/better-auth";
+import { getLastActiveOrganizationId } from "@/lib/workspace";
 
 export default async function WorkspacesPage() {
   const reqHeaders = await headers();
@@ -12,7 +13,10 @@ export default async function WorkspacesPage() {
     redirect("/sign-in");
   }
 
-  const organizations = await auth.api.listOrganizations({ headers: reqHeaders });
+  const [organizations, lastActiveOrganizationId] = await Promise.all([
+    auth.api.listOrganizations({ headers: reqHeaders }),
+    getLastActiveOrganizationId(session.user.id),
+  ]);
 
   return (
     <main className="flex min-h-full flex-1 flex-col items-center justify-center px-4 py-12">
@@ -47,11 +51,16 @@ export default async function WorkspacesPage() {
                 className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/40"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1b6ef3] text-white">
-                  <Check className="h-4 w-4 stroke-[3]" />
+                  <Check className="h-4 w-4 stroke-3" />
                 </div>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                   {org.name}
                 </span>
+                {org.id === lastActiveOrganizationId && (
+                  <span className="shrink-0 rounded-full bg-[#1b6ef3]/15 px-2 py-0.5 text-[11px] font-medium text-[#8ab4f8]">
+                    Last opened
+                  </span>
+                )}
               </Link>
             ))
           )}
