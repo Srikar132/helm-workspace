@@ -293,6 +293,55 @@ export const landmarks = pgTable(
   ],
 );
 
+// A comment pin on the canvas. NOT a widget row on purpose: widget writes are
+// owner/admin only (canWriteWidgets) and every widget node flows through the
+// canvas's widget-save path, while any member may comment. Pins live at a free
+// canvas coordinate and render in their own ViewportPortal layer.
+export const commentThreads = pgTable(
+  "comment_threads",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    authorId: text("author_id").references(() => user.id, { onDelete: "set null" }),
+    x: integer("x").notNull(),
+    y: integer("y").notNull(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: text("resolved_by").references(() => user.id, { onDelete: "set null" }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("comment_threads_org_live_idx")
+      .on(table.organizationId)
+      .where(drizzleSql`${table.deletedAt} is null`),
+  ],
+);
+
+export const comments = pgTable(
+  "comments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => commentThreads.id, { onDelete: "cascade" }),
+    // Denormalised from the thread so every query scopes by workspace without
+    // a join — an id from another workspace must match nothing.
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    authorId: text("author_id").references(() => user.id, { onDelete: "set null" }),
+    /** ProseMirror JSON in the comment schema (lib/tiptap/comment-extensions.ts). */
+    body: jsonb("body").$type<Record<string, unknown>>().notNull(),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("comments_thread_created_idx").on(table.threadId, table.createdAt, table.id)],
+);
+
 /** Payload every notification carries. `href` is built server-side so the
  *  client never assembles a URL out of ids; `title`/`snippet` are plain text. */
 export type NotificationPayload = { href: string; title: string; snippet?: string };
@@ -351,6 +400,8 @@ export const db = drizzle(sql, {
     cloudinaryCleanupJobs,
     landmarks,
     notifications,
+    commentThreads,
+    comments,
     ...authSchema,
   },
 });

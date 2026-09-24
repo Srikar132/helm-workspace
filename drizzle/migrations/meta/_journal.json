@@ -134,6 +134,13 @@
       "when": 1790248000023,
       "tag": "0018_chemical_lord_hawal",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790260982922,
+      "tag": "0019_violet_kat_farrell",
+      "breakpoints": true
     }
   ]
 }

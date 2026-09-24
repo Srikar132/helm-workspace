@@ -28,6 +28,12 @@ import type { AlbumPreview } from "@/lib/actions/albums";
 import type { GmailStatus } from "@/lib/actions/gmail";
 import type { GmailMessageSummary } from "@/lib/gmail";
 import { Landmark } from "@/lib/actions/landmarks";
+import {
+  CanvasCommentsContext,
+  useCanvasCommentsState,
+  type CanvasCommentsConfig,
+} from "@/components/canvas/comments/canvas-comments-context";
+import { CommentLayer } from "@/components/canvas/comments/comment-layer";
 
 const nodeTypes = { widget: WidgetNode };
 
@@ -43,6 +49,7 @@ interface CanvasShellProps {
   initialLandmarks: Record<string, Landmark>;
   /** The workspace's HOME landmark — the canvas opens centered on it. */
   initialDefaultLandmark?: Landmark | null;
+  comments: CanvasCommentsConfig;
 }
 
 function CanvasInner({
@@ -56,6 +63,7 @@ function CanvasInner({
   initialGmailMessages,
   initialLandmarks,
   initialDefaultLandmark,
+  comments,
 }: CanvasShellProps) {
   const ctx: WidgetNodeContext = useMemo(
     () => ({
@@ -105,6 +113,9 @@ function CanvasInner({
 
   const flowProps = FLOW_PROPS_BY_MODE[mode];
 
+  const commentsApi = useCanvasCommentsState({ slug, config: comments, mode });
+  const { openThread } = commentsApi;
+
   const { screenToFlowPosition, setCenter } = useReactFlow();
 
   // Landmark coords ARE the owning widget's position (the pin is the place).
@@ -130,6 +141,8 @@ function CanvasInner({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const focusWidgetId = searchParams.get("focus");
+  // `?thread=<id>` — a comment notification: fly to the pin, open the thread.
+  const focusThreadId = searchParams.get("thread");
   const flowReady = useRef(false);
 
   // Consumed once, then dropped from the URL so a reload doesn't yank the view
@@ -147,6 +160,13 @@ function CanvasInner({
   const handleFlowInit = useCallback(
     (instance: ReactFlowInstance) => {
       flowReady.current = true;
+      const thread = focusThreadId ? comments.initialThreads.find((t) => t.id === focusThreadId) : undefined;
+      if (focusThreadId) clearFocusParam();
+      if (thread) {
+        instance.setCenter(thread.x, thread.y, { zoom: 1 });
+        openThread(thread.id);
+        return;
+      }
       const focused = focusWidgetId ? instance.getNode(focusWidgetId) : undefined;
       if (focusWidgetId) clearFocusParam();
       const target =
@@ -185,6 +205,18 @@ function CanvasInner({
     // on each drag.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusWidgetId]);
+
+  // Same for a comment notification clicked while the canvas is open.
+  useEffect(() => {
+    if (!focusThreadId || !flowReady.current) return;
+    const thread = commentsApi.threads.find((t) => t.id === focusThreadId);
+    if (thread) {
+      setCenter(thread.x, thread.y, { zoom: 1, duration: 400 });
+      openThread(thread.id);
+    }
+    clearFocusParam();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusThreadId]);
 
   const { dndSensors, draggingType, handleDragStart, handleDragEnd } = useToolbarDrag({
     addWidget,
@@ -278,6 +310,7 @@ function CanvasInner({
   }, [mode, undoDraw, redoDraw]);
 
   return (
+    <CanvasCommentsContext.Provider value={commentsApi}>
     <DndContext id="canvas-widget-toolbar" sensors={dndSensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <CanvasModeProvider
         value={{
@@ -332,6 +365,7 @@ function CanvasInner({
               {/* <MiniMap className="hidden !rounded-xl !border !border-white/[0.06] md:block" /> */}
             </ReactFlow>
             <DrawCanvasOverlay />
+            <CommentLayer />
           </div>
         </CanvasActionsProvider>
 
@@ -357,6 +391,7 @@ function CanvasInner({
           document.body,
         )}
     </DndContext>
+    </CanvasCommentsContext.Provider>
   );
 }
 

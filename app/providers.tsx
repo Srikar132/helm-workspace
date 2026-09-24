@@ -86,11 +86,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
           // otherwise shadow fresh SSR data on the next reload indefinitely.
           // "notifications" is per-user under a static key (see
           // lib/query-keys.ts) — persisting it would leak across accounts.
+          // Comment threads are live shared state; a persisted copy would
+          // flash pins deleted or resolved since.
           shouldDehydrateQuery: (query) =>
             query.state.status === "success" &&
             query.queryKey[0] !== "gmailMessages" &&
             query.queryKey[0] !== "board" &&
-            query.queryKey[0] !== notificationKeys.all[0],
+            query.queryKey[0] !== notificationKeys.all[0] &&
+            query.queryKey[0] !== "commentThreads" &&
+            query.queryKey[0] !== "commentThread",
         },
       }}
     >

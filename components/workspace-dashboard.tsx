@@ -9,6 +9,7 @@ import type { AlbumPreview } from "@/lib/actions/albums";
 import type { GmailStatus } from "@/lib/actions/gmail";
 import type { GmailMessageSummary } from "@/lib/gmail";
 import { Landmark } from "@/lib/actions/landmarks";
+import type { CanvasCommentsConfig } from "@/components/canvas/comments/canvas-comments-context";
 // react-flow + dnd-kit + every widget component (Tiptap included, via
 // widget-node.tsx's static imports) all hang off this one import — code-
 // splitting it keeps that whole bundle out of the initial route JS. No SSR:
@@ -31,6 +32,7 @@ interface WorkspaceDashboardProps {
   initialLandmarks: Record<string, Landmark>;
   /** The workspace's HOME landmark — the canvas opens centered on it. */
   initialDefaultLandmark?: Landmark | null;
+  comments: CanvasCommentsConfig;
 }
 
 // The QueryClient itself lives at the root layout (app/providers.tsx) —
@@ -50,6 +52,7 @@ export function WorkspaceDashboard({
   initialGmailMessages,
   initialLandmarks,
   initialDefaultLandmark,
+  comments,
 }: WorkspaceDashboardProps) {
   return (
     <div className="relative h-dvh w-dvw overflow-hidden bg-[#1e1f20] text-[#e8eaed] font-sans">
@@ -64,6 +67,7 @@ export function WorkspaceDashboard({
         initialGmailMessages={initialGmailMessages}
         initialLandmarks={initialLandmarks}
         initialDefaultLandmark={initialDefaultLandmark}
+        comments={comments}
       />
       <CanvasChrome />
     </div>
