@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db, member, notifications, organization, type NotificationPayload } from "@/lib/db";
 import { diffMentions, docSnippet } from "@/lib/mentions";
+import { deliverOutbox, queueNotificationEmails } from "@/lib/notification-email";
 
 /**
  * The ONE place a notification row is written. Note/doc mentions and canvas
@@ -91,7 +92,7 @@ export async function notify(input: NotifyInput): Promise<void> {
     if (rows.length === 0) return;
 
     const payload = input.payload(rows[0].slug);
-    await db
+    const inserted = await db
       .insert(notifications)
       .values(
         rows.map((row) => ({
@@ -106,7 +107,14 @@ export async function notify(input: NotifyInput): Promise<void> {
           dedupeKey: input.dedupeKey(row.userId),
         })),
       )
-      .onConflictDoNothing({ target: notifications.dedupeKey });
+      .onConflictDoNothing({ target: notifications.dedupeKey })
+      .returning({ id: notifications.id, recipientId: notifications.recipientId, kind: notifications.kind });
+
+    // Email rides on the same rows: only freshly inserted notifications are
+    // queued, so the dedupe key above also keeps email to one per event.
+    // notify() already runs in after(), so sending here never delays a save.
+    const queued = await queueNotificationEmails(inserted);
+    await deliverOutbox(queued);
   } catch (error) {
     console.error("[notifications] notify failed", error);
   }

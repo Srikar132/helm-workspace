@@ -57,3 +57,7 @@ export function commentThreadsKey(slug: string) {
 export function commentThreadKey(threadId: string) {
   return ["commentThread", threadId] as const;
 }
+
+/** The viewer's email preferences — per-user under a static key, so excluded
+ *  from persistence like the notification keys. */
+export const notificationPreferencesKey = () => ["notificationPreferences"] as const;

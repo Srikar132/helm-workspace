@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/cloudinary-cleanup",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/email-outbox",
+      "schedule": "30 3 * * *"
     }
   ]
 }

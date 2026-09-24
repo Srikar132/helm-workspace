@@ -1,3 +1,5 @@
+import { escapeHtml } from "@/lib/emails/html";
+
 /** Where the app lives, for links inside emails. A relative URL is useless in
  *  an inbox, so this has to be absolute — BETTER_AUTH_URL is already the
  *  canonical "this deployment's origin" value auth uses for its own callbacks. */
@@ -21,15 +23,6 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function accessLevelLabel(role: string | null | undefined): string {
   return (role && ROLE_LABELS[role]) || "View only";
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 export type InvitationEmailInput = {

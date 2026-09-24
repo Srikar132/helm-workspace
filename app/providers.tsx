@@ -94,7 +94,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
             query.queryKey[0] !== "board" &&
             query.queryKey[0] !== notificationKeys.all[0] &&
             query.queryKey[0] !== "commentThreads" &&
-            query.queryKey[0] !== "commentThread",
+            query.queryKey[0] !== "commentThread" &&
+            query.queryKey[0] !== "notificationPreferences",
         },
       }}
     >

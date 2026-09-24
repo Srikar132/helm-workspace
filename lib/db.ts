@@ -293,6 +293,52 @@ export const landmarks = pgTable(
   ],
 );
 
+// Per-user email opt-outs, one row per (user, kind). A missing row means the
+// default — email ON — so nothing needs seeding for new users. In-app
+// notifications are always on; only email is controllable (issue #15 phase 3).
+export const notificationPreferences = pgTable(
+  "notification_preferences",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    emailEnabled: boolean("email_enabled").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("notification_preferences_user_kind_uidx").on(table.userId, table.kind)],
+);
+
+// Durable email delivery for notifications — the cloudinary-cleanup pattern:
+// the row is written with the notification, after() tries it straight away,
+// and the daily cron (/api/cron/email-outbox) is what guarantees it. One row
+// per notification (unique), so notify()'s dedupe carries over to email.
+export const emailOutbox = pgTable(
+  "email_outbox",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    notificationId: uuid("notification_id")
+      .notNull()
+      .references(() => notifications.id, { onDelete: "cascade" }),
+    recipientId: text("recipient_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** pending | sent | skipped | failed */
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    skipReason: text("skip_reason"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("email_outbox_notification_uidx").on(table.notificationId),
+    index("email_outbox_status_created_idx").on(table.status, table.createdAt),
+    index("email_outbox_recipient_sent_idx").on(table.recipientId, table.sentAt),
+  ],
+);
+
 // A comment pin on the canvas. NOT a widget row on purpose: widget writes are
 // owner/admin only (canWriteWidgets) and every widget node flows through the
 // canvas's widget-save path, while any member may comment. Pins live at a free
@@ -402,6 +448,8 @@ export const db = drizzle(sql, {
     notifications,
     commentThreads,
     comments,
+    notificationPreferences,
+    emailOutbox,
     ...authSchema,
   },
 });
