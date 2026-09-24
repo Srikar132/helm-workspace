@@ -3,9 +3,9 @@ import { db, member, notifications, organization, type NotificationPayload } fro
 import { diffMentions, docSnippet } from "@/lib/mentions";
 
 /**
- * The ONE place a notification row is written. Mentions call it today; comment
- * replies (phase 2) and AI/system alerts later call it unchanged — only the
- * unions below grow.
+ * The ONE place a notification row is written. Note/doc mentions and canvas
+ * comment threads call it today; AI/system alerts later call it unchanged —
+ * only the unions below grow.
  *
  * Deliberately NOT a "use server" module: exported functions there become
  * client-callable endpoints, and this one takes arbitrary recipient ids. Only
@@ -14,8 +14,8 @@ import { diffMentions, docSnippet } from "@/lib/mentions";
  */
 
 export type NotificationActorType = "user" | "system" | "ai";
-export type NotificationKind = "mention";
-export type NotificationSourceType = "widget" | "doc_page";
+export type NotificationKind = "mention" | "comment_reply";
+export type NotificationSourceType = "widget" | "doc_page" | "comment_thread";
 
 /** Fan-out cap per call — a pasted wall of mentions notifies the first 20. */
 export const MAX_RECIPIENTS_PER_NOTIFY = 20;
@@ -30,10 +30,27 @@ export type NotifyInput = {
   recipientIds: string[];
   /** Built once the workspace slug is known, so every href is server-made. */
   payload: (workspaceSlug: string) => NotificationPayload;
+  /** Idempotency key per recipient — each caller owns what "the same
+   *  notification" means (per source for note mentions, per comment for
+   *  comment mentions and replies). */
+  dedupeKey: (recipientId: string) => string;
 };
 
 export function mentionDedupeKey(sourceType: NotificationSourceType, sourceId: string, recipientId: string) {
   return `mention:${sourceType}:${sourceId}:${recipientId}`;
+}
+
+/** One per comment per recipient — a reply is a new comment, so it notifies again. */
+export function commentMentionDedupeKey(commentId: string, recipientId: string) {
+  return `mention:comment:${commentId}:${recipientId}`;
+}
+
+export function commentReplyDedupeKey(commentId: string, recipientId: string) {
+  return `reply:comment:${commentId}:${recipientId}`;
+}
+
+export function threadHref(workspaceSlug: string, threadId: string) {
+  return `/workspace/${encodeURIComponent(workspaceSlug)}?thread=${encodeURIComponent(threadId)}`;
 }
 
 export function widgetHref(workspaceSlug: string, widgetId: string) {
@@ -86,7 +103,7 @@ export async function notify(input: NotifyInput): Promise<void> {
           sourceType: input.sourceType,
           sourceId: input.sourceId,
           payload,
-          dedupeKey: mentionDedupeKey(input.sourceType, input.sourceId, row.userId),
+          dedupeKey: input.dedupeKey(row.userId),
         })),
       )
       .onConflictDoNothing({ target: notifications.dedupeKey });
@@ -105,6 +122,8 @@ export async function notifyNewMentions(input: {
   next: unknown;
   title: string;
   href: (workspaceSlug: string) => string;
+  /** Defaults to one mention notification per person per source. */
+  dedupeKey?: (recipientId: string) => string;
 }): Promise<void> {
   const added = diffMentions(input.prev, input.next);
   if (added.length === 0) return;
@@ -118,5 +137,6 @@ export async function notifyNewMentions(input: {
     sourceId: input.sourceId,
     recipientIds: added,
     payload: (slug) => ({ href: input.href(slug), title: input.title, ...(snippet ? { snippet } : {}) }),
+    dedupeKey: input.dedupeKey ?? ((recipientId) => mentionDedupeKey(input.sourceType, input.sourceId, recipientId)),
   });
 }

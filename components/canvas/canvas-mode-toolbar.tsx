@@ -9,6 +9,8 @@ import {
   House,
   LocateIcon,
   MapPin,
+  MessageSquareDashed,
+  MessageSquarePlus,
   Maximize2,
   Minus,
   MousePointer2,
@@ -24,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCanvasMode } from "@/components/canvas/canvas-mode-context";
 import { listLandmarks } from "@/lib/actions/landmarks";
+import { useCanvasComments } from "@/components/canvas/comments/canvas-comments-context";
 
 const COLORS = [
   { label: "Yellow", value: "#f7ce15" },
@@ -64,6 +67,7 @@ export function CanvasModeToolbar({ addWidgetAtViewportCenter, flyToLandmark }: 
     undoDraw,
     redoDraw,
   } = useCanvasMode();
+  const comments = useCanvasComments();
 
   const [landmarksOpen, setLandmarksOpen] = useState(false);
   const [landmarkQuery, setLandmarkQuery] = useState("");
@@ -384,6 +388,39 @@ export function CanvasModeToolbar({ addWidgetAtViewportCenter, flyToLandmark }: 
           >
             <LocateIcon className="h-4 w-4" />
           </Button>
+
+          {/* Comments — drop a pin at the centre of the current view. */}
+          {comments.config.canComment && (
+            <Button
+              type="button"
+              title="Add comment"
+              aria-label="Add comment"
+              variant={comments.draft ? "secondary" : "ghost"}
+              size="icon-sm"
+              shape="rounded"
+              onClick={() => {
+                // Pins are hidden under drawing tools; placing one means looking at them.
+                if (mode === "draw" || mode === "laser") setMode("grab");
+                comments.startDraftAtViewportCenter();
+              }}
+            >
+              <MessageSquarePlus className="h-4 w-4" />
+            </Button>
+          )}
+          {comments.resolvedCount > 0 && (
+            <Button
+              type="button"
+              title={comments.showResolved ? "Hide resolved comments" : `Show ${comments.resolvedCount} resolved`}
+              aria-label={comments.showResolved ? "Hide resolved comments" : "Show resolved comments"}
+              aria-pressed={comments.showResolved}
+              variant={comments.showResolved ? "secondary" : "ghost"}
+              size="icon-sm"
+              shape="rounded"
+              onClick={() => comments.setShowResolved((v) => !v)}
+            >
+              <MessageSquareDashed className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

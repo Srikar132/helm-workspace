@@ -45,3 +45,15 @@ export const notificationKeys = {
   count: () => [...notificationKeys.all, "count"] as const,
   list: () => [...notificationKeys.all, "list"] as const,
 };
+
+/** Every comment pin in a workspace — live collaborative state, polled, and
+ *  excluded from persistence in app/providers.tsx (a stale persisted copy would
+ *  flash pins that were deleted or resolved since). */
+export function commentThreadsKey(slug: string) {
+  return ["commentThreads", slug] as const;
+}
+
+/** One thread's comments. Thread ids are globally unique — no slug needed. */
+export function commentThreadKey(threadId: string) {
+  return ["commentThread", threadId] as const;
+}

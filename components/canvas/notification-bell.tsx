@@ -14,6 +14,7 @@ import {
 import { notificationKeys } from "@/lib/query-keys";
 import { unwrapAction } from "@/lib/query-utils";
 import { cn } from "@/lib/utils";
+import { timeAgo } from "@/lib/relative-time";
 
 /**
  * Polls rather than pushes: the count refreshes every minute and on focus,
@@ -23,30 +24,13 @@ import { cn } from "@/lib/utils";
 
 const POLL_MS = 60_000;
 
-const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto", style: "short" });
-function timeAgo(iso: string): string {
-  const seconds = Math.round((new Date(iso).getTime() - Date.now()) / 1000);
-  const steps: [Intl.RelativeTimeFormatUnit, number][] = [
-    ["second", 60],
-    ["minute", 60],
-    ["hour", 24],
-    ["day", 7],
-    ["week", 4.35],
-    ["month", 12],
-  ];
-  let value = seconds;
-  for (const [unit, size] of steps) {
-    if (Math.abs(value) < size) return relative.format(value, unit);
-    value = Math.round(value / size);
-  }
-  return relative.format(value, "year");
-}
-
 function describe(item: NotificationItem): string {
   const who = item.actorName ?? "Someone";
   switch (item.kind) {
     case "mention":
       return `${who} mentioned you in ${item.payload.title}`;
+    case "comment_reply":
+      return `${who} replied to ${item.payload.title}`;
     default:
       return item.payload.title;
   }

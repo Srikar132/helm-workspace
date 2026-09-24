@@ -37,6 +37,9 @@ export function createMentionSuggestion(getMembers: () => MentionableMember[]): 
       return {
         onStart(props) {
           component = new ReactRenderer(MentionList, { props, editor: props.editor });
+          // The mounted element is what floating-ui positions, so the layer
+          // goes on IT — above the comment panel (z-40) and canvas chrome.
+          component.element.style.zIndex = "55";
           unmount = props.mount(component.element);
         },
         onUpdate(props) {

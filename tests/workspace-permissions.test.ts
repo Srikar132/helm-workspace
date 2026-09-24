@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  canComment,
   canDeleteWorkspace,
+  canModerateComments,
   canManageWorkspace,
   canWriteEntries,
   canWriteWidgets,
@@ -66,5 +68,30 @@ describe("invite access levels", () => {
       expect(() => mapAccessLevelToOrgRole(level)).toThrow();
       expect(ACCESS_LEVELS.find((l) => l.value === level)?.enabled).toBe(false);
     }
+  });
+});
+
+describe("canComment", () => {
+  // The one write a view-only invitee gets — a mentioned teammate has to be
+  // able to answer. It must not leak into entry or widget writes.
+  it("lets every workspace role comment", () => {
+    for (const role of ROLES) expect(canComment(role)).toBe(true);
+  });
+
+  it("does not make a member a writer anywhere else", () => {
+    expect(canWriteEntries("member")).toBe(false);
+    expect(canWriteWidgets("member")).toBe(false);
+  });
+
+  it("denies a missing role", () => {
+    expect(canComment(null)).toBe(false);
+    expect(canComment(undefined)).toBe(false);
+  });
+});
+
+describe("canModerateComments", () => {
+  it("is exactly the workspace managers", () => {
+    for (const role of ROLES) expect(canModerateComments(role)).toBe(canManageWorkspace(role));
+    expect(canModerateComments("member")).toBe(false);
   });
 });

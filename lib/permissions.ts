@@ -40,3 +40,18 @@ export function canWriteWidgets(role: OrgRole | null | undefined): boolean {
 export function canDeleteWorkspace(role: OrgRole | null | undefined): boolean {
   return role === "owner";
 }
+
+/** Canvas comment threads — create, reply, resolve. The one write a view-only
+ *  invitee gets: a mentioned teammate who couldn't answer would make mentions
+ *  pointless. Commenting grants nothing else — entries and widgets still go
+ *  through canWriteEntries / canWriteWidgets. */
+export function canComment(role: OrgRole | null | undefined): boolean {
+  return role === "owner" || role === "admin" || role === "member";
+}
+
+/** Deleting or moving someone ELSE's comment or pin. Authors always manage
+ *  their own; this is the moderation override, same people who manage the
+ *  workspace. */
+export function canModerateComments(role: OrgRole | null | undefined): boolean {
+  return canManageWorkspace(role);
+}

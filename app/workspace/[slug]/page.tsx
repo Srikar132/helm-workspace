@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { auth } from "@/lib/better-auth";
-import { canWriteWidgets } from "@/lib/permissions";
+import { canComment, canModerateComments, canWriteWidgets } from "@/lib/permissions";
 import { WorkspaceDashboard } from "@/components/workspace-dashboard";
 import { getBoardData } from "@/lib/worklog";
 import { rememberLastWorkspace, requireViewerContext } from "@/lib/workspace";
@@ -11,6 +11,7 @@ import { getDocProjectsByIds } from "@/lib/actions/docs";
 import { getAlbumPreviewsByIds } from "@/lib/actions/albums";
 import { getGmailStatus, getTodayMessages } from "@/lib/actions/gmail";
 import { getLandmarksByIds, getDefaultLandmark } from "@/lib/actions/landmarks";
+import { listCommentThreadsAction } from "@/lib/actions/comments";
 
 export const dynamic = "force-dynamic";
 
@@ -79,12 +80,14 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
     initialLandmarks,
     initialGmailStatus,
     initialDefaultLandmark,
+    initialCommentThreads,
   ] = await Promise.all([
     getDocProjectsByIds(projectDocIds),
     getAlbumPreviewsByIds(albumIds),
     getLandmarksByIds(initialLandmarksIds),
     getGmailStatus(),
     getDefaultLandmark(),
+    listCommentThreadsAction(),
   ]);
 
   // Only known once we have the status above, so this can't join wave 2.
@@ -104,6 +107,12 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
       initialGmailMessages={initialGmailMessages}
       initialLandmarks={initialLandmarks}
       initialDefaultLandmark={initialDefaultLandmark}
+      comments={{
+        initialThreads: initialCommentThreads,
+        canComment: canComment(viewer.role),
+        canModerate: canModerateComments(viewer.role),
+        viewerUserId: viewer.userId,
+      }}
     />
   );
 }
