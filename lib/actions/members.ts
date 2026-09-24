@@ -260,3 +260,19 @@ export async function suggestInviteEmailsAction(
   return { suggestions: rows };
 }
 
+
+export type MentionableMember = { id: string; name: string; image: string | null };
+
+/** Who the `@` picker offers: members of the ACTIVE workspace only — id, name,
+ *  avatar, never email. Any member can already see who else is in the
+ *  workspace, so this exposes nothing new. The save path re-checks membership
+ *  before notifying anyone, so this list is convenience, not the gate. */
+export async function listMentionableMembersAction(): Promise<MentionableMember[]> {
+  const viewer = await requireViewerContext();
+  return db
+    .select({ id: user.id, name: user.name, image: user.image })
+    .from(member)
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(eq(member.organizationId, viewer.organizationId))
+    .orderBy(user.name);
+}

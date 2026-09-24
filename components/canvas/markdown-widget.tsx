@@ -4,6 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { normalizeMarkdownSource } from "@/lib/tiptap/markdown-signal";
 import { createNoteExtensions } from "@/lib/tiptap/note-extensions";
+import { useMentionSuggestion } from "@/lib/tiptap/use-mention-suggestion";
 import { useWidgetChrome } from "@/components/canvas/widget-chrome-context";
 import { useCanvasActions } from "@/components/canvas/canvas-actions-context";
 import { NoteToolbar } from "@/components/canvas/note-toolbar";
@@ -14,6 +15,7 @@ interface MarkdownWidgetProps {
   id: string;
   initialContent?: Record<string, unknown>;
   canWrite: boolean;
+  slug?: string;
 }
 
 /** Chromeless — no header, no grip icon. While entered, pushes its own
@@ -28,7 +30,7 @@ function isWrappedData(
   return data.type !== "doc";
 }
 
-export function MarkdownWidget({ id, initialContent, canWrite }: MarkdownWidgetProps) {
+export function MarkdownWidget({ id, initialContent, canWrite, slug }: MarkdownWidgetProps) {
   const { editing, enterPoint, setFloatingToolbar } = useWidgetChrome();
   const { updateWidgetData, deleteWidget } = useCanvasActions();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -45,8 +47,10 @@ export function MarkdownWidget({ id, initialContent, canWrite }: MarkdownWidgetP
   const pendingMarkdown = typeof wrapped?.pendingMarkdown === "string" ? wrapped.pendingMarkdown : undefined;
   const consumedPendingMarkdown = useRef(false);
 
+  const mentionSuggestion = useMentionSuggestion(slug, canWrite);
+
   const editor = useEditor({
-    extensions: createNoteExtensions(),
+    extensions: createNoteExtensions({ mentionSuggestion }),
     content: initialDoc ?? "",
     editable: editing && canWrite,
     immediatelyRender: false,

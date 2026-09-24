@@ -9,10 +9,12 @@ export const dynamic = "force-dynamic";
 
 interface DocsProjectPageProps {
   params: Promise<{ slug: string; projectId: string }>;
+  searchParams: Promise<{ page?: string | string[] }>;
 }
 
-export default async function DocsProjectPage({ params }: DocsProjectPageProps) {
+export default async function DocsProjectPage({ params, searchParams }: DocsProjectPageProps) {
   const { slug, projectId } = await params;
+  const { page: pageParam } = await searchParams;
   const reqHeaders = await headers();
 
   const session = await auth.api.getSession({ headers: reqHeaders });
@@ -49,6 +51,7 @@ export default async function DocsProjectPage({ params }: DocsProjectPageProps) 
       project={project}
       initialPages={pages}
       canWrite={viewer.role !== "member"}
+      initialPageId={typeof pageParam === "string" ? pageParam : undefined}
     />
   );
 }

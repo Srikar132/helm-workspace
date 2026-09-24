@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
+import { sql as drizzleSql } from "drizzle-orm";
 import {
   boolean,
   date,
@@ -292,6 +293,48 @@ export const landmarks = pgTable(
   ],
 );
 
+/** Payload every notification carries. `href` is built server-side so the
+ *  client never assembles a URL out of ids; `title`/`snippet` are plain text. */
+export type NotificationPayload = { href: string; title: string; snippet?: string };
+
+// One row per delivered in-app notification — mentions today, comment replies
+// and AI alerts later, all written through lib/notifications.ts `notify()`.
+// timestamptz ON PURPOSE, unlike every older table: those store server-local
+// time read back tagged Z (see AGENTS.md §12); new tables start correct.
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    recipientId: text("recipient_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    actorType: text("actor_type").notNull(),
+    // Null once the actor's account is deleted — the row still means something
+    // to the recipient, it just renders as "Someone".
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    kind: text("kind").notNull(),
+    sourceType: text("source_type").notNull(),
+    sourceId: text("source_id").notNull(),
+    payload: jsonb("payload").$type<NotificationPayload>().notNull(),
+    // Idempotency: every insert is ON CONFLICT DO NOTHING against this, which
+    // is what makes autosave bursts, the save retry and concurrent tabs safe
+    // without transactions (Neon HTTP has none).
+    dedupeKey: text("dedupe_key").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("notifications_dedupe_key_uidx").on(table.dedupeKey),
+    index("notifications_recipient_created_idx").on(table.recipientId, table.createdAt.desc(), table.id.desc()),
+    index("notifications_recipient_unread_idx")
+      .on(table.recipientId)
+      .where(drizzleSql`${table.readAt} is null`),
+  ],
+);
+
 
 const sql = neon(process.env.DATABASE_URL || "postgres://placeholder:placeholder@localhost/placeholder");
 
@@ -307,6 +350,7 @@ export const db = drizzle(sql, {
     albumImages,
     cloudinaryCleanupJobs,
     landmarks,
+    notifications,
     ...authSchema,
   },
 });

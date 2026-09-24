@@ -10,13 +10,14 @@ interface PageSheetProps {
   registerRef: (el: HTMLDivElement | null) => void;
   onChange: (json: JSONContent) => void;
   onFocusEditor: (editor: Editor) => void;
+  slug?: string;
 }
 
 /** A single page — starts Letter-proportioned (the aspect-[...] class is
  *  just a minimum shape) and grows naturally with content; nothing clips
  *  it and nothing auto-splits it. Real pagination happens at export time
  *  via the browser's print engine, not while editing. */
-export function PageSheet({ page, canWrite, registerRef, onChange, onFocusEditor }: PageSheetProps) {
+export function PageSheet({ page, canWrite, registerRef, onChange, onFocusEditor, slug }: PageSheetProps) {
   return (
     <div
       ref={registerRef}
@@ -33,6 +34,7 @@ export function PageSheet({ page, canWrite, registerRef, onChange, onFocusEditor
         <TiptapEditor
           content={page.content}
           editable={canWrite}
+          slug={slug}
           onChange={onChange}
           onFocusEditor={onFocusEditor}
           className="prose-page text-[13.5px] sm:text-[14px]"

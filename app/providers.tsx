@@ -8,6 +8,7 @@ import { useState } from "react";
 import NextTopLoader from "nextjs-toploader";
 import { Toaster } from "@/components/ui/toast";
 import { toastManager } from "@/lib/toast";
+import { notificationKeys } from "@/lib/query-keys";
 
 // Bump this whenever a persisted query's shape changes incompatibly — it
 // invalidates every previously-persisted cache instead of a client hydrating
@@ -83,10 +84,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
           // changed every day; now that the board shows all dates unscoped,
           // that key is static, so a persisted-but-stale board query would
           // otherwise shadow fresh SSR data on the next reload indefinitely.
+          // "notifications" is per-user under a static key (see
+          // lib/query-keys.ts) — persisting it would leak across accounts.
           shouldDehydrateQuery: (query) =>
             query.state.status === "success" &&
             query.queryKey[0] !== "gmailMessages" &&
-            query.queryKey[0] !== "board",
+            query.queryKey[0] !== "board" &&
+            query.queryKey[0] !== notificationKeys.all[0],
         },
       }}
     >

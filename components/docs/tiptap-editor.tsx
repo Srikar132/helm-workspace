@@ -3,6 +3,7 @@
 import { useEditor, EditorContent, type Editor, type JSONContent } from "@tiptap/react";
 import { useEffect, useRef } from "react";
 import { createNoteExtensions } from "@/lib/tiptap/note-extensions";
+import { useMentionSuggestion } from "@/lib/tiptap/use-mention-suggestion";
 
 const SAVE_DEBOUNCE_MS = 600;
 
@@ -18,6 +19,8 @@ interface TiptapEditorProps {
   /** Fires when this editor gains focus — the docs route uses this to know
    *  which page's editor the single global toolbar should act on. */
   onFocusEditor?: (editor: Editor) => void;
+  /** Workspace slug — enables the `@` picker. Absent on the public share page. */
+  slug?: string;
 }
 
 /** Presentational Tiptap setup shared by the canvas markdown widget's spirit
@@ -29,11 +32,12 @@ interface TiptapEditorProps {
  *  time via the browser's own print engine, not while editing (an earlier
  *  version tried to auto-paginate live and it was never reliable — see
  *  git history if curious). */
-export function TiptapEditor({ content, onChange, editable, placeholder, className, onFocusEditor }: TiptapEditorProps) {
+export function TiptapEditor({ content, onChange, editable, placeholder, className, onFocusEditor, slug }: TiptapEditorProps) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mentionSuggestion = useMentionSuggestion(slug, editable);
 
   const editor = useEditor({
-    extensions: createNoteExtensions({ placeholder: placeholder ?? "Write something…" }),
+    extensions: createNoteExtensions({ placeholder: placeholder ?? "Write something…", mentionSuggestion }),
     content: content ?? "",
     editable,
     immediatelyRender: false,
