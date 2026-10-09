@@ -52,11 +52,11 @@ export type Category = (typeof CATEGORIES)[number];
 export const MIN_SUMMARY_LENGTH = 10;
 
 
+const FILLER_SUMMARIES = new Set(["worked on stuff", "nothing much"]);
+
 export function isFillerSummary(summary: string): boolean {
   const normalized = summary.trim().toLowerCase();
-  return (
-    normalized.length < MIN_SUMMARY_LENGTH
-  );
+  return normalized.length < MIN_SUMMARY_LENGTH || FILLER_SUMMARIES.has(normalized);
 }
 
 /** Predefined pin colors — the only choices the landmark UI offers (draft form

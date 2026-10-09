@@ -1,4 +1,4 @@
-import { docSnippet } from "@/lib/mentions";
+import { docSnippet, hasIdlessMention } from "@/lib/mentions";
 
 /**
  * Pure rules for canvas comment threads — shared by the server actions and the
@@ -29,6 +29,9 @@ export function validateCommentBody(body: unknown): CommentBodyCheck {
   }
   if (new TextEncoder().encode(JSON.stringify(body)).length > MAX_COMMENT_JSON_BYTES) {
     return { ok: false, error: "That comment is too large." };
+  }
+  if (hasIdlessMention(body)) {
+    return { ok: false, error: "A mention is missing its person. Pick them from the list again." };
   }
   const text = commentPlainText(body);
   if (text.length === 0) return { ok: false, error: "Write something first." };

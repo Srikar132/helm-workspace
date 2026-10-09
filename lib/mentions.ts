@@ -56,6 +56,23 @@ export function docSnippet(doc: unknown, max = 140): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
+/** Shown when a mention has neither a resolvable member nor a stored label. */
+export const FALLBACK_MENTION_NAME = "teammate";
+
+/**
+ * The name a mention chip should show. The stored `id` is the identity; the
+ * stored `label` is only the name as it was when the mention was written, so
+ * the current member name wins and the label is the fallback for people who
+ * have since left the workspace.
+ */
+export function resolveMentionLabel(attrs: unknown, nameById?: ReadonlyMap<string, string>): string {
+  const { id, label } = (attrs && typeof attrs === "object" ? attrs : {}) as { id?: unknown; label?: unknown };
+  const current = typeof id === "string" ? nameById?.get(id) : undefined;
+  if (current) return current;
+  if (typeof label === "string" && label.trim().length > 0) return label;
+  return FALLBACK_MENTION_NAME;
+}
+
 /** What a public viewer sees in place of a mention. */
 export const REDACTED_MENTION_TEXT = "@teammate";
 
@@ -74,4 +91,21 @@ export function redactMentions<T>(doc: T): T {
   }
   if (!Array.isArray(node.content)) return doc;
   return { ...node, content: node.content.map((child) => redactMentions(child)) } as T;
+}
+
+/** True when any mention node has no usable user id. Such a node renders as a
+ *  bare "@" chip and can never notify anyone, so writers reject it instead of
+ *  saving it quietly. */
+export function hasIdlessMention(doc: unknown): boolean {
+  const stack: unknown[] = [doc];
+  while (stack.length > 0) {
+    const node = stack.pop() as JsonNode | null | undefined;
+    if (!node || typeof node !== "object") continue;
+    if (node.type === "mention") {
+      const id = node.attrs && typeof node.attrs === "object" ? (node.attrs as { id?: unknown }).id : undefined;
+      if (typeof id !== "string" || id.length === 0) return true;
+    }
+    if (Array.isArray(node.content)) stack.push(...node.content);
+  }
+  return false;
 }

@@ -21,6 +21,7 @@ import {
 } from "@/lib/actions/comments";
 import { useSession } from "@/lib/auth-client";
 import { commentThreadKey, commentThreadsKey } from "@/lib/query-keys";
+import { useMentionNames } from "@/lib/tiptap/use-mention-names";
 import { unwrapAction } from "@/lib/query-utils";
 import { timeAgo } from "@/lib/relative-time";
 import { toastManager } from "@/lib/toast";
@@ -201,6 +202,7 @@ function DraftView({ onClose }: { onClose: () => void }) {
           slug={slug}
           placeholder="Add a comment. Type @ to mention someone"
           submitLabel="Post comment"
+          roomy
           autoFocus
           pending={creating}
           onCancel={onClose}
@@ -326,6 +328,7 @@ function ThreadView({
   });
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const mentionNames = useMentionNames(slug);
 
   const replyCount = thread?.replyCount ?? 0;
   const title = resolved ? (
@@ -391,6 +394,7 @@ function ThreadView({
                 last={index === data.comments.length - 1}
                 viewerUserId={config.viewerUserId}
                 canModerate={config.canModerate}
+                mentionNames={mentionNames}
                 editing={editingId === comment.id}
                 onEdit={() => setEditingId(comment.id)}
                 onDelete={() => removeComment(comment.id)}
@@ -438,6 +442,7 @@ function CommentRow({
   last,
   viewerUserId,
   canModerate,
+  mentionNames,
   editing,
   onEdit,
   onDelete,
@@ -447,6 +452,7 @@ function CommentRow({
   last: boolean;
   viewerUserId: string;
   canModerate: boolean;
+  mentionNames: ReadonlyMap<string, string>;
   editing: boolean;
   onEdit: () => void;
   onDelete: () => void;
@@ -460,7 +466,7 @@ function CommentRow({
   return (
     <li className={cn("group/comment relative flex gap-3 pt-3", pending && "opacity-70")}>
       {/* The reply line: joins each avatar to the next, so the chain reads as one conversation. */}
-      {!last && <span aria-hidden className="absolute bottom-0 left-[13.5px] top-[44px] w-px bg-border" />}
+      {!last && <span aria-hidden className="absolute bottom-0 left-[13.5px] top-11 w-px bg-border" />}
       <CommentAvatar name={comment.authorName} image={comment.authorImage} className="relative h-7 w-7 text-[12px]" />
       <div className="min-w-0 flex-1 pb-1">
         <div className="flex items-baseline gap-2">
@@ -513,7 +519,7 @@ function CommentRow({
           ) : comment.deleted || !comment.body ? (
             <p className="text-[13px] italic text-muted-foreground">Comment deleted</p>
           ) : (
-            <CommentBody body={comment.body} />
+            <CommentBody body={comment.body} names={mentionNames} />
           )}
         </div>
       </div>

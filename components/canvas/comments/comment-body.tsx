@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { resolveMentionLabel } from "@/lib/mentions";
 
 /**
  * Renders a stored comment (ProseMirror JSON, comment schema) as React
@@ -54,29 +55,30 @@ function withMarks(text: ReactNode, marks: Mark[] | undefined, key: string): Rea
   }, text);
 }
 
-function renderInline(node: Node, key: string): ReactNode {
+function renderInline(node: Node, key: string, names?: ReadonlyMap<string, string>): ReactNode {
   if (node.type === "text" && typeof node.text === "string") return withMarks(node.text, node.marks, key);
   if (node.type === "hardBreak") return <br key={key} />;
   if (node.type === "mention") {
-    const label = typeof node.attrs?.label === "string" ? node.attrs.label : "someone";
     return (
       <span key={key} className="mention">
-        @{label}
+        @{resolveMentionLabel(node.attrs, names)}
       </span>
     );
   }
   return null;
 }
 
-export function CommentBody({ body }: { body: Record<string, unknown> }) {
+/** `names` maps user id → current member name; a mention falls back to the
+ *  label stored in the comment while it is missing. */
+export function CommentBody({ body, names }: { body: Record<string, unknown>; names?: ReadonlyMap<string, string> }) {
   const blocks = Array.isArray(body.content) ? (body.content as Node[]) : [];
   return (
-    <div className="comment-body space-y-1 break-words text-[13px] leading-relaxed">
+    <div className="comment-body space-y-1 wrap-break-word text-[13px] leading-relaxed">
       {blocks.map((block, b) => {
         const inline = Array.isArray(block.content) ? (block.content as Node[]) : [];
         return (
           <p key={b} className="min-h-[1em]">
-            {inline.map((child, i) => renderInline(child, `${b}-${i}`))}
+            {inline.map((child, i) => renderInline(child, `${b}-${i}`, names))}
           </p>
         );
       })}
