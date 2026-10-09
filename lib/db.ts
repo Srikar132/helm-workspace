@@ -110,8 +110,8 @@ export const widgets = pgTable(
     x: integer("x").notNull(),
     y: integer("y").notNull(),
     width: integer("width").notNull(),
-    // Null = auto-height (sizes to content until manually resized) — same
-    // meaning as WidgetLayoutItem["height"] being omitted.
+    // Always written now (the stored size IS the size — lib/canvas/widget-sizing.ts).
+    // Null only on rows from before that; they read back as the type's settled size.
     height: integer("height"),
     data: jsonb("data").$type<Record<string, unknown>>(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -7,7 +7,7 @@ import { useCanvasActions } from "@/components/canvas/canvas-actions-context";
 import { useCanvasMode } from "@/components/canvas/canvas-mode-context";
 import { WidgetChromeProvider } from "@/components/canvas/widget-chrome-context";
 import { resolveWidgetChrome, widgetChromeClassName, widgetPhase } from "@/lib/canvas/widget-interaction";
-import { isWidgetResizable } from "@/components/canvas/widget-registry";
+import { isResizable, resizeLimits } from "@/lib/canvas/widget-sizing";
 import { BoardWidget } from "@/components/canvas/board-widget";
 import { BookmarkWidget } from "@/components/canvas/bookmark-widget";
 import { CodeWidget } from "@/components/canvas/code-widget";
@@ -36,12 +36,6 @@ export type WidgetNodeData = {
   /** No visible header anymore — used as a native `title` tooltip on hover. */
   title: string;
   canWrite: boolean;
-  /** Content-driven height floor, in px — see widget-registry's AUTO_HEIGHT_MIN.
-   *  Applied directly on the card's own container, not an ancestor:
-   *  min-height on a percentage-sized ancestor doesn't stretch percentage
-   *  children to fill it (they resolve as `auto` per spec), so the floor
-   *  has to live on the box that actually needs to grow. */
-  minHeight?: number;
   /** This widget owns a text caret, so it needs the `editing` phase: inside it
    *  a drag must select characters, which conflicts with dragging to
    *  reposition. Everything else is interactive from the first click and needs
@@ -148,16 +142,14 @@ const RESIZE_LINE_CLASS = "!border-transparent";
 const RESIZE_LINE_STYLE = { borderWidth: 10 };
 const RESIZE_HANDLE_CLASS = "!border-none !bg-transparent";
 const RESIZE_HANDLE_STYLE = { width: 22, height: 22 };
-const RESIZE_MIN_WIDTH = 160;
-const RESIZE_MIN_HEIGHT = 100;
 
 export function WidgetNode({ id, data, selected }: NodeProps) {
   const widgetData = data as unknown as WidgetNodeData;
-  const { title, minHeight, textEditing = false } = widgetData;
-  // Derived from live widgetData, not a flag frozen at node construction — a
-  // bookmark/gallery draft is resizable while its form is up and stops being so
-  // once saved (see isWidgetResizable).
-  const resizable = isWidgetResizable(widgetData.widgetType, widgetData.widgetData);
+  const { title, textEditing = false } = widgetData;
+  // Resizability and limits come from the sizing table (lib/canvas/widget-sizing.ts),
+  // by type only: a widget is either resizable or it is not, draft or saved.
+  const resizable = isResizable(widgetData.widgetType);
+  const limits = resizeLimits(widgetData.widgetType);
   const [editing, setEditing] = useState(false);
   const [enterPoint, setEnterPoint] = useState<{ x: number; y: number } | null>(null);
   const [floatingToolbar, setFloatingToolbar] = useState<React.ReactNode | null>(null);
@@ -263,7 +255,7 @@ export function WidgetNode({ id, data, selected }: NodeProps) {
       }}
     >
       <div
-        style={{ ...(minHeight && !chromeless ? { minHeight } : undefined), ...(cardBg ? { backgroundColor: cardBg } : undefined) }}
+        style={cardBg ? { backgroundColor: cardBg } : undefined}
         className={`h-full w-full touch-manipulation ${chromeless ? "" : "widget-card-shell overflow-hidden transition-all"} ${widgetChromeClassName(chrome, chromeless ? "idle" : phase)}`}
       >
         <WidgetChromeProvider value={{ editing, enterPoint, setFloatingToolbar }}>
@@ -281,8 +273,10 @@ export function WidgetNode({ id, data, selected }: NodeProps) {
 
       {chrome.showResizeControls && (
         <NodeResizer
-          minWidth={RESIZE_MIN_WIDTH}
-          minHeight={RESIZE_MIN_HEIGHT}
+          minWidth={limits.min.width}
+          minHeight={limits.min.height}
+          maxWidth={limits.max.width}
+          maxHeight={limits.max.height}
           lineClassName={RESIZE_LINE_CLASS}
           lineStyle={RESIZE_LINE_STYLE}
           handleClassName={RESIZE_HANDLE_CLASS}

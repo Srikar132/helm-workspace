@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Check, House, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { settledSize } from "@/lib/canvas/widget-sizing";
 import { useCanvasActions } from "@/components/canvas/canvas-actions-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +53,7 @@ export function LandmarkWidget({ id, canWrite, initialLandmark, landmarkId }: La
 
 /** Footprint a SAVED pin occupies on the canvas — the draft form starts at the
  *  registry's roomier size and shrinks to this once the landmark exists. */
-export const LANDMARK_PIN_SIZE = { width: 190, height: 220 };
+const LANDMARK_PIN_SIZE = settledSize("landmark");
 
 /** Creation form — name + one of the predefined pin colours. Saving links the
  *  widget to its landmarks row via widgetData.landmarkId, then shrinks the

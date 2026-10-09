@@ -112,7 +112,7 @@ Build to these unless the user changes them.
 - **Auth is better-auth, workspaces are its organizations.** A workspace is an `organization` row; membership and role are `member` rows; the active workspace is `session.activeOrganizationId`. Do not roll a parallel tenancy model.
 - **Only `view` invitations exist.** `mapAccessLevelToOrgRole` throws for `edit`/`full` and `ACCESS_LEVELS` marks them disabled. An invited member reads the workspace and writes nothing. When real write roles land, the permission predicates are the single place to change.
 - **One row per widget** (`widgets` table, `lib/actions/widgets.ts`). Reposition, resize, edit, create, and delete each touch exactly one row. The old single-JSONB-array-per-user design (`widgetLayouts`) is kept only as a rollback source and is unused — never reintroduce it.
-- **The widget registry is the source of truth for widget behaviour** (`components/canvas/widget-registry.ts`): which types exist, which are multi-instance, which resize, which auto-height, which own a text caret, what the defaults are. Adding a widget type means editing that file, not branching inside `canvas-shell.tsx`.
+- **The widget registry is the source of truth for widget behaviour** (`components/canvas/widget-registry.ts`): which types exist, which are multi-instance, which own a text caret, what the defaults are (sizes live in `lib/canvas/widget-sizing.ts`). Adding a widget type means editing that file, not branching inside `canvas-shell.tsx`.
 - **Canvas interaction is a lookup table, not conditionals** (`lib/canvas/widget-interaction.ts`): mode (`grab` / `select` / `draw` / `laser`) × phase (`idle` / `selected` / `editing`) → chrome. `editing` exists only for widgets that own a caret, because drag is the only genuinely ambiguous gesture. Read a cell; do not re-derive the rules at a call site.
 - **Widget saves are debounced per widget (500ms) and retried once**, with one shared failure signal (`use-save-status.ts`). A failed save surfaces; it never silently discards the edit.
 - **A separate browser window is a separate `QueryClient`.** The IDE window (`/workspace/[slug]/ide/[widgetId]`) cannot invalidate the canvas's cache, so it posts over a BroadcastChannel *after* the write lands, and the receiver treats that as display state it never writes back. This does not violate the one-client rule — that rule is per document.
@@ -134,7 +134,7 @@ Schema lives in `lib/db.ts`; auth tables in `lib/auth-schema.ts` (both re-export
 
 - **Auth and tenancy** (better-auth owns these — change them through better-auth's schema, not by hand): `user`, `session` (carries `activeOrganizationId`), `account` (holds the Google/GitHub tokens and scopes), `verification`, `organization`, `member` (role: `owner` | `admin` | `member`), `invitation`, and the OAuth application/token/consent tables the MCP server authenticates against.
 - **`entries`** — one work log row: date (IST string), title, summary, `status` enum, `workType` text, optional due date, `organizationId`, `authorId`, `deletedAt`. Indexed by `(organizationId, date)` and `(organizationId, date, status)`.
-- **`widgets`** — one row per canvas widget: `pk` (true identity), `id` (app-level, unique per organization — pinned defaults like `board-1` reuse the same id across users), `organizationId`, `userId`, `type`, `x`, `y`, `width`, nullable `height` (null = auto-height), and a `data` JSONB for widget-specific state.
+- **`widgets`** — one row per canvas widget: `pk` (true identity), `id` (app-level, unique per organization — pinned defaults like `board-1` reuse the same id across users), `organizationId`, `userId`, `type`, `x`, `y`, `width`, `height` (the stored size is the size; null only on pre-sizing-model rows), and a `data` JSONB for widget-specific state.
 - **`widgetLayouts`** — superseded, unused by app code, kept as a rollback source. Do not read or write it.
 - **`docProjects`** / **`docPages`** — a documentation project (title, description, GitHub/resource links, live link, `shareToken`, `isPublic`) and its ordered pages, each holding Tiptap JSON in `content`.
 - **`albums`** / **`albumGroups`** / **`albumImages`** — a workspace album, its optional groups, and its images (Cloudinary URL plus `cloudinaryPublicId`, which is the only way to delete the real asset). Deleting a group sets its images back to ungrouped rather than deleting them.
@@ -148,10 +148,12 @@ Every schema change: `npx drizzle-kit generate`, then `npm run db:migrate`. Neve
 
 Widgets are the canvas's whole surface area. Adding or changing one touches a known set of places, in this order:
 
-1. `components/canvas/widget-registry.ts` — register the type (`KNOWN_WIDGET_TYPES`), and declare its behaviour: multi-instance, resizable, auto-height floor, text-editing, default size, title, and how `buildNode` maps a row to an xyflow node. A type removed from `KNOWN_WIDGET_TYPES` stops rendering without a data migration, because `mergeWithDefaults` filters unknown types out.
+1. `components/canvas/widget-registry.ts` — register the type (`KNOWN_WIDGET_TYPES`), and declare its behaviour: multi-instance, text-editing, title, and how `buildNode` maps a row to an xyflow node. A type removed from `KNOWN_WIDGET_TYPES` stops rendering without a data migration, because `mergeWithDefaults` filters unknown types out.
 2. `components/canvas/<name>-widget.tsx` — the widget itself. It reads its own persisted state from `widgetData` and writes through `useCanvasActions()`; it does not receive mutation callbacks as props.
 3. `components/canvas/widget-toolbar.tsx` — the drag-to-create entry, if it is user-creatable.
 4. A server action in `lib/actions/` if it owns data of its own (like doc projects or albums), plus its query keys.
+
+Sizing: a widget's stored `width` x `height` IS its size — nothing measures content and nothing infers a size from the type at render time; content that does not fit scrolls inside the card. Defaults, limits (min/max) and `resizable` for each type live in one table, `lib/canvas/widget-sizing.ts`, read by the canvas and clamped again by the server actions. A form that settles into a smaller card sets that size once with `resizeWidget(id, settledSize(type))`. New type = a row in that table.
 
 Rules:
 
