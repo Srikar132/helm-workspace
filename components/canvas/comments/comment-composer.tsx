@@ -16,6 +16,9 @@ interface CommentComposerProps {
   submitLabel?: string;
   autoFocus?: boolean;
   pending?: boolean;
+  /** Reserves room for a few lines, so a long placeholder (the first comment
+   *  on a pin) isn't squeezed into a one-line-tall box. */
+  roomy?: boolean;
   /** `clear` empties the box — call it once the post has succeeded, so a
    *  failed post keeps what was typed. */
   onSubmit: (body: Record<string, unknown>, clear: () => void) => void;
@@ -35,6 +38,7 @@ export function CommentComposer({
   submitLabel = "Post",
   autoFocus,
   pending,
+  roomy,
   onSubmit,
   onCancel,
 }: CommentComposerProps) {
@@ -46,7 +50,11 @@ export function CommentComposer({
 
   function submit(json: JSONContent) {
     if (pending || commentPlainText(json).length === 0) return;
-    onSubmit(json as Record<string, unknown>, () => editor?.commands.clearContent(true));
+    // ProseMirror node attrs have a null prototype, which a server action
+    // can't carry: the mention arrived as a bare node with no id. Round-trip
+    // to plain objects first.
+    const plain = JSON.parse(JSON.stringify(json)) as Record<string, unknown>;
+    onSubmit(plain, () => editor?.commands.clearContent(true));
   }
 
   const editor = useEditor({
@@ -55,7 +63,13 @@ export function CommentComposer({
     immediatelyRender: false,
     autofocus: autoFocus ? "end" : false,
     editorProps: {
-      attributes: { class: "comment-editor max-h-40 overflow-y-auto px-3 py-2 text-[13px] outline-none", spellcheck: "false" },
+      attributes: {
+        class: cn(
+          "comment-editor max-h-40 overflow-y-auto px-3 py-2 text-[13px] outline-none",
+          roomy && "min-h-[76px] leading-relaxed",
+        ),
+        spellcheck: "false",
+      },
       handleKeyDown: (view, event) => {
         if (isSuggestionActive(view.state)) return false;
         if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {

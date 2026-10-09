@@ -43,7 +43,15 @@ describe("isWidgetResizable", () => {
   it("covers every type listed as non-resizable", () => {
     // If a type is added to that set later, it needs a draft rule here or it
     // silently becomes un-resizable even while showing a form.
-    expect([...NON_RESIZABLE_WIDGET_TYPES].sort()).toEqual(["board", "bookmark", "code", "gallery", "mail-summary"]);
+    expect([...NON_RESIZABLE_WIDGET_TYPES].sort()).toEqual([
+      "board",
+      "bookmark",
+      "code",
+      "draw",
+      "gallery",
+      "landmark",
+      "mail-summary",
+    ]);
   });
 
   it("never resizes a code card, which has no form to grow into", () => {

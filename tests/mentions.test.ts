@@ -2,7 +2,16 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { Editor } from "@tiptap/core";
 import { createNoteExtensions } from "@/lib/tiptap/note-extensions";
-import { REDACTED_MENTION_TEXT, diffMentions, docSnippet, extractMentionIds, redactMentions } from "@/lib/mentions";
+import {
+  FALLBACK_MENTION_NAME,
+  REDACTED_MENTION_TEXT,
+  diffMentions,
+  docSnippet,
+  extractMentionIds,
+  hasIdlessMention,
+  redactMentions,
+  resolveMentionLabel,
+} from "@/lib/mentions";
 import { filterMentionMembers } from "@/lib/tiptap/mention-suggestion";
 
 const mention = (id: string, label = id) => ({ type: "mention", attrs: { id, label } });
@@ -128,3 +137,35 @@ function findMentions(e: Editor): { id: string; label: string }[] {
   });
   return out;
 }
+
+describe("resolveMentionLabel", () => {
+  const names = new Map([["u1", "Asha Rao"]]);
+
+  it("prefers the current member name over the stored label", () => {
+    expect(resolveMentionLabel({ id: "u1", label: "Asha" }, names)).toBe("Asha Rao");
+  });
+
+  it("falls back to the stored label for someone no longer in the list", () => {
+    expect(resolveMentionLabel({ id: "gone", label: "Ravi" }, names)).toBe("Ravi");
+    expect(resolveMentionLabel({ id: "u1", label: "Asha" })).toBe("Asha");
+  });
+
+  it("never returns a blank or 'someone' for a bare mention", () => {
+    expect(resolveMentionLabel(undefined, names)).toBe(FALLBACK_MENTION_NAME);
+    expect(resolveMentionLabel({ id: null, label: null }, names)).toBe(FALLBACK_MENTION_NAME);
+    expect(resolveMentionLabel({ id: "x", label: "  " }, names)).toBe(FALLBACK_MENTION_NAME);
+  });
+});
+
+describe("hasIdlessMention", () => {
+  it("flags a mention with no id, at any depth", () => {
+    expect(hasIdlessMention(doc({ type: "mention" }))).toBe(true);
+    expect(hasIdlessMention(doc({ type: "mention", attrs: { id: null, label: "A" } }))).toBe(true);
+    expect(hasIdlessMention(doc({ type: "mention", attrs: { id: "", label: "A" } }))).toBe(true);
+  });
+
+  it("passes id-carrying mentions and plain @text", () => {
+    expect(hasIdlessMention(doc(mention("u1", "Asha"), { type: "text", text: "@bob" }))).toBe(false);
+    expect(hasIdlessMention(null)).toBe(false);
+  });
+});

@@ -10,7 +10,7 @@ import {
 } from "@/lib/comments";
 import { createCommentExtensions, isSuggestionActive } from "@/lib/tiptap/comment-extensions";
 import { extractMentionIds } from "@/lib/mentions";
-import { commentMentionDedupeKey, commentReplyDedupeKey, threadHref } from "@/lib/notifications";
+import { candidateRecipients, commentMentionDedupeKey, commentReplyDedupeKey, threadHref } from "@/lib/notifications";
 import { timeAgo } from "@/lib/relative-time";
 
 const para = (...inline: unknown[]) => ({ type: "paragraph", content: inline });
@@ -30,6 +30,11 @@ describe("validateCommentBody", () => {
     expect(validateCommentBody({ type: "paragraph" }).ok).toBe(false);
     expect(validateCommentBody(null).ok).toBe(false);
     expect(validateCommentBody([doc()]).ok).toBe(false);
+  });
+
+  it("rejects a mention that carries no user id (it could never notify anyone)", () => {
+    expect(validateCommentBody(doc(para({ type: "mention" }, text(" hello")))).ok).toBe(false);
+    expect(validateCommentBody(doc(para({ type: "mention", attrs: { id: null, label: null } }))).ok).toBe(false);
   });
 
   it("caps text length and raw JSON size", () => {
@@ -115,5 +120,16 @@ describe("comment editor schema", () => {
   it("reports no active suggestion on a fresh editor", () => {
     const e = create(doc(para(text("hello"))));
     expect(isSuggestionActive(e.state)).toBe(false);
+  });
+});
+
+describe("who a comment notifies", () => {
+  it("mentions go to the mentioned ids; replies skip the mentioned and the actor", () => {
+    const body = doc(para(mention("b", "Bea"), text(" ping "), mention("me", "Self")));
+    const mentioned = extractMentionIds(body);
+    expect(candidateRecipients(mentioned, "me")).toEqual(["b"]);
+    expect(
+      replyRecipients({ threadAuthorId: "a", priorCommentAuthorIds: ["b", "c", "a"], actorId: "me", mentionedIds: mentioned }),
+    ).toEqual(["a", "c"]);
   });
 });
