@@ -11,6 +11,7 @@ import { canWriteWidgets } from "@/lib/permissions";
 import { checkDragRateLimit, checkRateLimit } from "@/lib/rate-limit";
 import { extractMentionIds } from "@/lib/mentions";
 import { notifyNewMentions, widgetHref } from "@/lib/notifications";
+import { ABSOLUTE_MAX_SIZE, ABSOLUTE_MIN_SIZE, clampSize, defaultSize, storedSize } from "@/lib/canvas/widget-sizing";
 
 const MAX_WIDGETS_PER_WORKSPACE = 64;
 
@@ -20,10 +21,9 @@ const layoutItemSchema = z.object({
   type: z.string().min(1),
   x: z.number(),
   y: z.number(),
-  width: z.number().min(80),
-  // Optional — a markdown note omits this until manually resized, sizing to
-  // its content in the meantime.
-  height: z.number().min(80).optional(),
+  width: z.number().min(ABSOLUTE_MIN_SIZE).max(ABSOLUTE_MAX_SIZE),
+  // Optional only for older clients; the server fills in the type's default.
+  height: z.number().min(ABSOLUTE_MIN_SIZE).max(ABSOLUTE_MAX_SIZE).optional(),
   data: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -33,8 +33,7 @@ function rowToItem(row: { id: string; type: string; x: number; y: number; width:
     type: row.type,
     x: row.x,
     y: row.y,
-    width: row.width,
-    height: row.height ?? undefined,
+    ...storedSize(row.type, row.width, row.height),
     data: (row.data as Record<string, unknown> | null) ?? undefined,
   };
 }
@@ -89,7 +88,7 @@ export async function getMyWidgetLayout(): Promise<WidgetLayoutItem[]> {
         x: item.x,
         y: item.y,
         width: item.width,
-        height: item.height ?? null,
+        height: item.height,
         data: item.data ?? null,
       })),
     );
@@ -135,6 +134,10 @@ export async function createWidgetAction(item: WidgetLayoutItem): Promise<{ erro
     return { error: "This workspace has reached its widget limit." };
   }
 
+  const size = clampSize(parsed.data.type, {
+    width: parsed.data.width,
+    height: parsed.data.height ?? defaultSize(parsed.data.type).height,
+  });
   await db.insert(widgets).values({
     id: parsed.data.id,
     organizationId: viewer.organizationId,
@@ -142,8 +145,8 @@ export async function createWidgetAction(item: WidgetLayoutItem): Promise<{ erro
     type: parsed.data.type,
     x: parsed.data.x,
     y: parsed.data.y,
-    width: parsed.data.width,
-    height: parsed.data.height ?? null,
+    width: size.width,
+    height: size.height,
     data: parsed.data.data ?? null,
   });
 
@@ -171,7 +174,11 @@ export async function updateWidgetPositionAction(input: z.infer<typeof positionS
   return {};
 }
 
-const sizeSchema = z.object({ id: idSchema, width: z.number().min(80), height: z.number().min(80).nullable() });
+const sizeSchema = z.object({
+  id: idSchema,
+  width: z.number().min(ABSOLUTE_MIN_SIZE).max(ABSOLUTE_MAX_SIZE),
+  height: z.number().min(ABSOLUTE_MIN_SIZE).max(ABSOLUTE_MAX_SIZE),
+});
 
 export async function updateWidgetSizeAction(input: z.infer<typeof sizeSchema>): Promise<{ error?: string }> {
   const parsed = sizeSchema.safeParse(input);
@@ -182,9 +189,19 @@ export async function updateWidgetSizeAction(input: z.infer<typeof sizeSchema>):
   const rateLimit = await checkDragRateLimit(`update-widget-size:${viewer.userId}`);
   if (!rateLimit.success) return { error: rateLimit.error };
 
+  // The type decides the limits, and it comes from the row (scoped to this
+  // workspace), never from the client.
+  const [row] = await db
+    .select({ type: widgets.type })
+    .from(widgets)
+    .where(widgetWhere(parsed.data.id, viewer.organizationId))
+    .limit(1);
+  if (!row) return { error: MISSING_WIDGET_ERROR };
+
+  const size = clampSize(row.type, { width: parsed.data.width, height: parsed.data.height });
   const updated = await db
     .update(widgets)
-    .set({ width: parsed.data.width, height: parsed.data.height, updatedAt: new Date() })
+    .set({ width: size.width, height: size.height, updatedAt: new Date() })
     .where(widgetWhere(parsed.data.id, viewer.organizationId))
     .returning({ id: widgets.id });
   if (updated.length === 0) return { error: MISSING_WIDGET_ERROR };

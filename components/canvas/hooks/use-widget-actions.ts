@@ -1,7 +1,8 @@
 import type { Node } from "@xyflow/react";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
-import { AUTO_HEIGHT_MIN, NEW_WIDGET_DEFAULTS, buildNode, type WidgetNodeContext } from "@/components/canvas/widget-registry";
+import { buildNode, type WidgetNodeContext } from "@/components/canvas/widget-registry";
+import { defaultSize } from "@/lib/canvas/widget-sizing";
 import { WIDGET_SAVE_RETRY, type SaveStatus } from "@/components/canvas/hooks/use-save-status";
 import { createWidgetAction, deleteWidgetAction, updateWidgetDataAction, updateWidgetSizeAction } from "@/lib/actions/widgets";
 import { unwrapAction } from "@/lib/query-utils";
@@ -178,11 +179,11 @@ export function useWidgetActions({ ctx, setNodes, saveStatus }: UseWidgetActions
 
   const addWidget = useCallback(
     (type: string, dropPoint?: { x: number; y: number }, initialData?: Record<string, unknown>) => {
-      const defaults = NEW_WIDGET_DEFAULTS[type] ?? { width: 340, height: 320 };
+      const defaults = defaultSize(type);
       // dropPoint is the toolbar drag's release point (canvas coords) — the
       // widget centers there instead of anchoring its top-left corner to it.
       const x = type === "draw" ? 0 : dropPoint ? dropPoint.x - defaults.width / 2 : 60;
-      const y = type === "draw" ? 0 : dropPoint ? dropPoint.y - (defaults.height ?? AUTO_HEIGHT_MIN[type] ?? 160) / 2 : 340;
+      const y = type === "draw" ? 0 : dropPoint ? dropPoint.y - defaults.height / 2 : 340;
       const item: WidgetLayoutItem = {
         id: `${type}-${crypto.randomUUID()}`,
         type,

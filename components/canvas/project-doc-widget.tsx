@@ -15,6 +15,7 @@ import {
 } from "@/lib/actions/docs";
 import { unwrapAction } from "@/lib/query-utils";
 import { ProjectSpecForm, specDraftFrom } from "@/components/canvas/project-spec-form";
+import { settledSize } from "@/lib/canvas/widget-sizing";
 import { ProjectDocCardBody } from "@/components/canvas/project-doc-card-body";
 
 interface ProjectDocWidgetProps {
@@ -33,12 +34,17 @@ export function ProjectDocWidget({ id, docProjectId, slug, canWrite, initialSumm
 }
 
 function DraftProjectForm({ id, canWrite }: { id: string; canWrite: boolean }) {
-  const { updateWidgetData, deleteWidget } = useCanvasActions();
+  const { updateWidgetData, deleteWidget, resizeWidget } = useCanvasActions();
   const [error, setError] = useState<string | null>(null);
 
   const createMutation = useMutation({
     mutationFn: (formData: FormData) => unwrapAction(createDocProjectAction({}, formData)),
-    onSuccess: (res) => updateWidgetData(id, { docProjectId: res.id }),
+    onSuccess: (res) => {
+      updateWidgetData(id, { docProjectId: res.id });
+      // The form needed room; the saved card is a compact summary. Set once,
+      // after which the size is the user's.
+      resizeWidget(id, settledSize("project-doc"));
+    },
     onError: (err) => setError(err.message),
   });
 
