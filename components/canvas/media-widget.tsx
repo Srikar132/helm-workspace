@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Copy, Download, Link as LinkIcon, Trash2 } from "lucide-react";
+import { AlertCircle, Copy, Download, ImageDown, Maximize2, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useCanvasActions } from "@/components/canvas/canvas-actions-context";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { copyImage, copyLink, downloadItem } from "@/components/albums/image-actions";
+import { ImageViewerOverlay } from "@/components/albums/image-viewer-overlay";
 import { toastManager } from "@/lib/toast";
 import { uploadToCloudinary } from "@/lib/upload-client";
 
@@ -54,6 +56,7 @@ export function MediaWidget({ id, data, canWrite }: MediaWidgetProps) {
   const media = readMediaData(data);
   const [progress, setProgress] = useState(0);
   const startedRef = useRef(false);
+  const [viewing, setViewing] = useState(false);
 
   function upload(file: File) {
     setProgress(0);
@@ -98,27 +101,6 @@ export function MediaWidget({ id, data, canWrite }: MediaWidgetProps) {
     startedRef.current = true;
     updateWidgetData(id, { status: "uploading" });
     upload(file);
-  }
-
-  async function copyImage(url: string) {
-    try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-    } catch {
-      await navigator.clipboard.writeText(url);
-    }
-  }
-
-  function download(url: string) {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "";
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
   }
 
   if (media.status === "uploading") {
@@ -171,8 +153,10 @@ export function MediaWidget({ id, data, canWrite }: MediaWidgetProps) {
   }
 
   const { url, resourceType } = media;
+  const item = { url, kind: resourceType };
 
   return (
+    <>
     <ContextMenu>
       {/* No "nodrag" here on purpose — this widget is chromeless (no header
           bar), so grabbing the media itself is how the node gets repositioned. */}
@@ -181,19 +165,29 @@ export function MediaWidget({ id, data, canWrite }: MediaWidgetProps) {
           <video src={url} controls className="h-full w-full object-contain" />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt="" className="h-full w-full object-contain" />
+          <img
+            src={url}
+            alt=""
+            onDoubleClick={() => setViewing(true)}
+            className="h-full w-full object-contain"
+          />
         )}
       </ContextMenuTrigger>
       <ContextMenuContent>
         {resourceType === "image" && (
-          <ContextMenuItem onClick={() => copyImage(url)}>
-            <Copy className="h-3.5 w-3.5" /> Copy image
+          <ContextMenuItem onClick={() => setViewing(true)}>
+            <Maximize2 className="h-3.5 w-3.5" /> View full size
           </ContextMenuItem>
         )}
-        <ContextMenuItem onClick={() => navigator.clipboard.writeText(url)}>
-          <LinkIcon className="h-3.5 w-3.5" /> Copy link
+        {resourceType === "image" && (
+          <ContextMenuItem onClick={() => void copyImage(item)}>
+            <ImageDown className="h-3.5 w-3.5" /> Copy image
+          </ContextMenuItem>
+        )}
+        <ContextMenuItem onClick={() => void copyLink(item)}>
+          <Copy className="h-3.5 w-3.5" /> Copy link
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => download(url)}>
+        <ContextMenuItem onClick={() => downloadItem(item)}>
           <Download className="h-3.5 w-3.5" /> Download
         </ContextMenuItem>
         {canWrite && (
@@ -203,5 +197,7 @@ export function MediaWidget({ id, data, canWrite }: MediaWidgetProps) {
         )}
       </ContextMenuContent>
     </ContextMenu>
+    {viewing && resourceType === "image" && <ImageViewerOverlay image={item} onClose={() => setViewing(false)} />}
+    </>
   );
 }

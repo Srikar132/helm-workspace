@@ -10,6 +10,7 @@ import {
   FolderInput,
   FolderOutput,
   FolderX,
+  ImageDown,
   ImageOff,
   MoreHorizontal,
   Pencil,
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { PendingUpload } from "@/components/albums/use-album-upload";
 import { useAlbumImageMutations } from "@/components/albums/use-album-image-mutations";
+import { copyImage, copyLink, downloadItem } from "@/components/albums/image-actions";
 import type { AlbumGroupRow, AlbumImageRow } from "@/lib/actions/albums";
 import { albumThumbnailUrl, documentLabel, formatFileSize } from "@/lib/album-file";
 
@@ -52,17 +54,6 @@ interface AlbumGridProps {
   /** Forces every tile's checkbox visible (not just on hover) — the only way
    *  to discover/start bulk selection on touch devices, which have no hover. */
   selectionMode: boolean;
-}
-
-export function downloadItem(item: Pick<AlbumImageRow, "url" | "name">) {
-  const a = document.createElement("a");
-  a.href = item.url;
-  a.download = item.name ?? "";
-  a.target = "_blank";
-  a.rel = "noopener noreferrer";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
 }
 
 export function AlbumGrid({
@@ -212,15 +203,13 @@ function AlbumTile({
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: item.id,
     data: { type: "album-item", imageId: item.id, groupId: item.groupId },
-    disabled: !canWrite,
+    // A tap in selection mode toggles the tile; a held finger must not start
+    // a drag out from under it.
+    disabled: !canWrite || selectionActive,
   });
 
   const isDocument = item.kind !== "image";
   const thumbnail = thumbnailFailed ? null : albumThumbnailUrl(item);
-
-  async function copyLink() {
-    await navigator.clipboard.writeText(item.url);
-  }
 
   function handleClick() {
     if (selectionActive) onToggleSelect();
@@ -238,7 +227,19 @@ function AlbumTile({
       // actual moving thumbnail is DragOverlay (album-view.tsx), portalled to
       // <body> so it isn't clipped by this grid's own overflow-y-auto once
       // dragged past the container edge toward the sidebar.
-      style={{ opacity: isDragging ? 0.3 : 1, touchAction: "none" }}
+      //
+      // touch-action is `manipulation`, NOT `none`: `none` makes the browser
+      // refuse to scroll from any swipe that starts on a tile, which on a
+      // phone is nearly every swipe. The touch sensor's long-press delay
+      // (album-view.tsx) is what separates "scroll" from "drag". The callout
+      // and text selection are off because iOS's own long-press menu
+      // would otherwise fight that hold.
+      style={{
+        opacity: isDragging ? 0.3 : 1,
+        touchAction: "manipulation",
+        WebkitTouchCallout: "none",
+        userSelect: "none",
+      }}
       className="group relative aspect-square overflow-hidden rounded-2xl border border-white/[0.06] bg-card shadow-sm transition-shadow hover:shadow-lg hover:shadow-black/30"
     >
       {thumbnail ? (
@@ -296,7 +297,12 @@ function AlbumTile({
               <DropdownMenuItem onClick={() => duplicate.mutate({ id: item.id })}>
                 <FolderInput className="h-3.5 w-3.5" /> Duplicate
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void copyLink()}>
+              {item.kind === "image" && (
+                <DropdownMenuItem onClick={() => void copyImage(item)}>
+                  <ImageDown className="h-3.5 w-3.5" /> Copy image
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => void copyLink(item)}>
                 <Copy className="h-3.5 w-3.5" /> Copy link
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => downloadItem(item)}>

@@ -4,8 +4,9 @@ import { motion } from "framer-motion";
 import { Download, FolderInput, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { downloadItem } from "@/components/albums/album-grid";
+import { downloadItem } from "@/components/albums/image-actions";
 import { useAlbumImageMutations } from "@/components/albums/use-album-image-mutations";
+import { toastManager } from "@/lib/toast";
 import type { AlbumGroupRow, AlbumImageRow } from "@/lib/actions/albums";
 
 interface BulkActionBarProps {
@@ -25,7 +26,12 @@ export function BulkActionBar({ selectedIds, items, groups, onClear, onDone }: B
     // Staggered — firing many downloads in the same tick gets a chunk of
     // them silently dropped by the browser's popup/download throttling.
     selected.forEach((item, i) => {
-      setTimeout(() => downloadItem(item), i * 300);
+      setTimeout(() => downloadItem(item, { quiet: true }), i * 300);
+    });
+    toastManager.add({
+      title: `Downloading ${selected.length} file${selected.length === 1 ? "" : "s"}`,
+      description: selected.length > 1 ? "Your browser may ask to allow multiple downloads." : undefined,
+      type: "success",
     });
   }
 

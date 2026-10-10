@@ -1,13 +1,74 @@
 import { describe, expect, it } from "vitest";
 import {
   albumThumbnailUrl,
+  attachmentUrl,
   classifyAlbumFile,
   classifyDocumentFile,
   DOCUMENT_RESOURCE_TYPE,
+  downloadFileName,
   formatFileSize,
   isDocumentFile,
   pdfThumbnailUrl,
+  pngUrl,
 } from "@/lib/album-file";
+
+describe("downloadFileName", () => {
+  it("drops the extension and keeps a plain name", () => {
+    expect(downloadFileName({ name: "Beach day.JPG", kind: "image" })).toBe("Beach_day");
+  });
+
+  // These characters would end or extend the Cloudinary transformation.
+  it("strips characters that could break out of the transformation segment", () => {
+    const name = downloadFileName({ name: "a/b,c?d#e%f", kind: "image" });
+    expect(name).toBe("a_b_c_d_e_f");
+    expect(name).not.toMatch(/[/,?#%]/);
+  });
+
+  it("falls back by kind when nothing usable is left", () => {
+    expect(downloadFileName({ name: null, kind: "image" })).toBe("image");
+    expect(downloadFileName({ name: "   ", kind: "pdf" })).toBe("document");
+    expect(downloadFileName({ name: null, kind: "video" })).toBe("video");
+    expect(downloadFileName({ name: "日本語.png", kind: "image" })).toBe("image");
+  });
+
+  it("caps the length", () => {
+    expect(downloadFileName({ name: "x".repeat(300), kind: "image" }).length).toBe(80);
+  });
+});
+
+describe("attachmentUrl", () => {
+  const url = "https://res.cloudinary.com/demo/image/upload/v1/helm/pic.jpg";
+
+  it("inserts the attachment flag right after /upload/", () => {
+    expect(attachmentUrl({ url, name: "Beach day.jpg", kind: "image" })).toBe(
+      "https://res.cloudinary.com/demo/image/upload/fl_attachment:Beach_day/v1/helm/pic.jpg",
+    );
+  });
+
+  it("uses the bare flag for Word files so the stored extension is kept", () => {
+    expect(
+      attachmentUrl({ url: "https://res.cloudinary.com/demo/raw/upload/v1/a.docx", name: "Spec", kind: "word" }),
+    ).toBe("https://res.cloudinary.com/demo/raw/upload/fl_attachment/v1/a.docx");
+  });
+
+  it("returns a non-Cloudinary URL unchanged", () => {
+    expect(attachmentUrl({ url: "https://example.com/a.jpg", name: "a", kind: "image" })).toBe(
+      "https://example.com/a.jpg",
+    );
+  });
+});
+
+describe("pngUrl", () => {
+  it("asks Cloudinary for a PNG", () => {
+    expect(pngUrl("https://res.cloudinary.com/demo/image/upload/v1/pic.webp")).toBe(
+      "https://res.cloudinary.com/demo/image/upload/f_png/v1/pic.webp",
+    );
+  });
+
+  it("leaves other URLs alone", () => {
+    expect(pngUrl("https://example.com/a.png")).toBe("https://example.com/a.png");
+  });
+});
 
 describe("classifyDocumentFile", () => {
   it("classifies by MIME type", () => {
