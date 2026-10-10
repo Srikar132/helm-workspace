@@ -8,7 +8,7 @@ import {
   deleteImageAction,
   moveImageToGroupAction,
   renameImageAction,
-} from "@/lib/actions/albums";
+} from "@/lib/actions/galleries";
 import { unwrapAction } from "@/lib/query-utils";
 import { toastManager } from "@/lib/toast";
 
@@ -16,11 +16,11 @@ function errorToast(title: string, err: Error) {
   toastManager.add({ title, description: err.message, type: "error" });
 }
 
-/** Shared by album-grid.tsx's per-tile menu, lightbox.tsx's action bar, and
+/** Shared by gallery-grid.tsx's per-tile menu, lightbox.tsx's action bar, and
  *  bulk-action-bar.tsx — the same six write paths, previously duplicated
  *  (rename/delete/duplicate/move ×2, bulk delete/move) across those files
  *  as raw `.then(onChanged)` calls. */
-export function useAlbumImageMutations(onChanged: () => void) {
+export function useGalleryImageMutations(onChanged: () => void) {
   const rename = useMutation({
     mutationFn: (input: { id: string; name: string }) => unwrapAction(renameImageAction(input.id, input.name)),
     onSuccess: () => {

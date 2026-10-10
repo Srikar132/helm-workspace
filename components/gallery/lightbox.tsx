@@ -5,16 +5,16 @@ import { ChevronLeft, ChevronRight, Copy, Download, FolderInput, ImageDown, Penc
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { copyImage, copyLink, downloadItem } from "@/components/albums/image-actions";
-import { useAlbumImageMutations } from "@/components/albums/use-album-image-mutations";
-import { useModalDialog } from "@/components/albums/use-modal-dialog";
-import { ZoomableImage } from "@/components/albums/zoomable-image";
-import type { AlbumGroupRow, AlbumImageRow } from "@/lib/actions/albums";
+import { copyImage, copyLink, downloadItem } from "@/components/gallery/image-actions";
+import { useGalleryImageMutations } from "@/components/gallery/use-gallery-image-mutations";
+import { useModalDialog } from "@/components/gallery/use-modal-dialog";
+import { ZoomableImage } from "@/components/gallery/zoomable-image";
+import type { GalleryGroupRow, GalleryImageRow } from "@/lib/actions/galleries";
 
 interface LightboxProps {
-  images: AlbumImageRow[];
+  images: GalleryImageRow[];
   index: number;
-  groups: AlbumGroupRow[];
+  groups: GalleryGroupRow[];
   canWrite: boolean;
   onClose: () => void;
   onIndexChange: (index: number) => void;
@@ -27,7 +27,7 @@ function isEditable(target: EventTarget | null): boolean {
 
 export function Lightbox({ images, index, groups, canWrite, onClose, onIndexChange, onChanged }: LightboxProps) {
   const image = images[index];
-  const { remove } = useAlbumImageMutations(onChanged);
+  const { remove } = useGalleryImageMutations(onChanged);
   const reduceMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -131,7 +131,7 @@ export function Lightbox({ images, index, groups, canWrite, onClose, onIndexChan
  *  `renaming`/`name` for free, instead of syncing them via an effect.
  *
  *  Copy and Download only READ the image, so they are shown to everyone; the
- *  actions that change the album stay behind `canWrite` (and the server
+ *  actions that change the gallery stay behind `canWrite` (and the server
  *  checks the role again on every one of them). */
 function LightboxActionBar({
   image,
@@ -140,15 +140,15 @@ function LightboxActionBar({
   onDelete,
   onChanged,
 }: {
-  image: AlbumImageRow;
-  groups: AlbumGroupRow[];
+  image: GalleryImageRow;
+  groups: GalleryGroupRow[];
   canWrite: boolean;
   onDelete: () => void;
   onChanged: () => void;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(image.name ?? "");
-  const { rename, duplicate, move } = useAlbumImageMutations(onChanged);
+  const { rename, duplicate, move } = useGalleryImageMutations(onChanged);
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-1.5 p-3 sm:p-4">

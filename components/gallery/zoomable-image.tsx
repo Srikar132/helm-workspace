@@ -3,11 +3,11 @@
 import { AlertCircle, Download, Loader2, Maximize2, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { downloadItem } from "@/components/albums/image-actions";
-import { usePanZoom } from "@/components/albums/use-pan-zoom";
+import { downloadItem } from "@/components/gallery/image-actions";
+import { usePanZoom } from "@/components/gallery/use-pan-zoom";
 import { MAX_SCALE } from "@/lib/pan-zoom";
 
-/** The slice of an image the stage needs — an album row or a canvas widget. */
+/** The slice of an image the stage needs — a gallery row or a canvas widget. */
 export interface ViewerImage {
   url: string;
   name?: string | null;

@@ -11,8 +11,8 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { copyImage, copyLink, downloadItem } from "@/components/albums/image-actions";
-import { ImageViewerOverlay } from "@/components/albums/image-viewer-overlay";
+import { copyImage, copyLink, downloadItem } from "@/components/gallery/image-actions";
+import { ImageViewerOverlay } from "@/components/gallery/image-viewer-overlay";
 import { toastManager } from "@/lib/toast";
 import { uploadToCloudinary } from "@/lib/upload-client";
 

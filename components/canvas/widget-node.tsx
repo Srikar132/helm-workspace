@@ -18,7 +18,7 @@ import { MediaWidget } from "@/components/canvas/media-widget";
 import { ProjectDocWidget } from "@/components/canvas/project-doc-widget";
 import type { BoardColumn } from "@/lib/worklog";
 import type { DocProjectSummary } from "@/lib/actions/docs";
-import type { AlbumPreview } from "@/lib/actions/albums";
+import type { GalleryPreview } from "@/lib/actions/galleries";
 import type { GmailStatus } from "@/lib/actions/gmail";
 import type { GmailMessageSummary } from "@/lib/gmail";
 import type { Landmark } from "@/lib/actions/landmarks";
@@ -53,7 +53,7 @@ export type WidgetNodeData = {
   initialSummary?: DocProjectSummary;
   /** Server-prefetched — batched once for every gallery card on the canvas,
    *  same precedent as initialSummary above. */
-  initialPreview?: AlbumPreview;
+  initialPreview?: GalleryPreview;
   /** Server-prefetched — only populated for type "mail-summary". */
   initialGmailStatus?: GmailStatus;
   initialGmailMessages?: GmailMessageSummary[];
@@ -77,11 +77,11 @@ function renderWidgetBody(id: string, data: WidgetNodeData): React.ReactNode {
     case "draw":
       return <DrawWidget id={id} canWrite={data.canWrite} widgetData={data.widgetData} />;
     case "gallery": {
-      const albumId = data.widgetData?.albumId;
+      const galleryId = data.widgetData?.galleryId;
       return (
         <GalleryWidget
           id={id}
-          albumId={typeof albumId === "string" ? albumId : undefined}
+          galleryId={typeof galleryId === "string" ? galleryId : undefined}
           slug={data.slug}
           canWrite={data.canWrite}
           initialPreview={data.initialPreview}
@@ -234,7 +234,7 @@ export function WidgetNode({ id, data, selected }: NodeProps) {
   // surface, same as the draft states of bookmark/landmark keep theirs.
   const chromeless =
     widgetData.widgetType === "landmark" ||
-    (widgetData.widgetType === "gallery" && typeof widgetData.widgetData?.albumId === "string");
+    (widgetData.widgetType === "gallery" && typeof widgetData.widgetData?.galleryId === "string");
 
   if (widgetData.widgetType === "draw") {
     return <DrawWidget id={id} canWrite={widgetData.canWrite} widgetData={widgetData.widgetData} />;

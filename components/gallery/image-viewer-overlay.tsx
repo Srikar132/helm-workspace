@@ -4,13 +4,13 @@ import { Copy, Download, ImageDown, X } from "lucide-react";
 import { useRef } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { copyImage, copyLink, downloadItem } from "@/components/albums/image-actions";
-import { useModalDialog } from "@/components/albums/use-modal-dialog";
-import { ZoomableImage, type ViewerImage } from "@/components/albums/zoomable-image";
+import { copyImage, copyLink, downloadItem } from "@/components/gallery/image-actions";
+import { useModalDialog } from "@/components/gallery/use-modal-dialog";
+import { ZoomableImage, type ViewerImage } from "@/components/gallery/zoomable-image";
 
 /**
- * Zoom / pan viewer for ONE image that isn't part of an album (a canvas image
- * widget). The album `Lightbox` needs a list, groups and mutations that a lone
+ * Zoom / pan viewer for ONE image that isn't part of a gallery (a canvas image
+ * widget). The gallery `Lightbox` needs a list, groups and mutations that a lone
  * image doesn't have, so this is the same stage in a thinner shell.
  *
  * Portalled to <body>: a canvas node lives inside xyflow's transformed

@@ -13,7 +13,7 @@ import { notificationKeys } from "@/lib/query-keys";
 // Bump this whenever a persisted query's shape changes incompatibly — it
 // invalidates every previously-persisted cache instead of a client hydrating
 // stale-shaped data from localStorage against new code.
-const CACHE_BUSTER = "v1";
+const CACHE_BUSTER = "v2";
 
 // A real Storage-like object is required at construction time even during
 // SSR — but branching WHICH PROVIDER COMPONENT renders based on
@@ -37,7 +37,7 @@ function createNoopStorage() {
  *  every client-side route change (e.g. canvas -> /workspaces -> canvas).
  *  That wiped the entire cache on every nav, forcing every widget to refetch
  *  everything from zero even if it had just fetched seconds earlier — the
- *  actual cause of the repeated getDocProject/getAlbumPreview calls, not
+ *  actual cause of the repeated getDocProject/getGalleryPreview calls, not
  *  query complexity or a missing staleTime. */
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -45,7 +45,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Prefetched/shared data (doc projects, album previews, gmail
+            // Prefetched/shared data (doc projects, gallery previews, gmail
             // status, workspace members) is refreshed by our own writes via
             // explicit invalidateQueries calls, not by polling — a long
             // staleTime here just avoids redundant refetches for data we

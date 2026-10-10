@@ -11,38 +11,38 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import {
-  createAlbumAction,
-  deleteAlbumAction,
-  getAlbumPreview,
-  type AlbumImageRow,
-  type AlbumPreview,
-} from "@/lib/actions/albums";
+  createGalleryAction,
+  deleteGalleryAction,
+  getGalleryPreview,
+  type GalleryImageRow,
+  type GalleryPreview,
+} from "@/lib/actions/galleries";
 import { unwrapAction } from "@/lib/query-utils";
-import { albumStackThumbnailUrl } from "@/lib/album-file";
+import { galleryStackThumbnailUrl } from "@/lib/gallery-file";
 
 interface GalleryWidgetProps {
   id: string;
-  albumId?: string;
+  galleryId?: string;
   slug?: string;
   canWrite: boolean;
-  initialPreview?: AlbumPreview;
+  initialPreview?: GalleryPreview;
 }
 
-export function GalleryWidget({ id, albumId, slug, canWrite, initialPreview }: GalleryWidgetProps) {
-  if (!albumId) {
-    return <DraftAlbumForm id={id} canWrite={canWrite} />;
+export function GalleryWidget({ id, galleryId, slug, canWrite, initialPreview }: GalleryWidgetProps) {
+  if (!galleryId) {
+    return <DraftGalleryForm id={id} canWrite={canWrite} />;
   }
-  return <GalleryCard id={id} albumId={albumId} slug={slug} canWrite={canWrite} initialPreview={initialPreview} />;
+  return <GalleryCard id={id} galleryId={galleryId} slug={slug} canWrite={canWrite} initialPreview={initialPreview} />;
 }
 
-function DraftAlbumForm({ id, canWrite }: { id: string; canWrite: boolean }) {
+function DraftGalleryForm({ id, canWrite }: { id: string; canWrite: boolean }) {
   const { updateWidgetData, deleteWidget } = useCanvasActions();
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const createMutation = useMutation({
-    mutationFn: (albumName: string) => unwrapAction(createAlbumAction(albumName)),
-    onSuccess: (res) => updateWidgetData(id, { albumId: res.id }),
+    mutationFn: (galleryName: string) => unwrapAction(createGalleryAction(galleryName)),
+    onSuccess: (res) => updateWidgetData(id, { galleryId: res.id }),
     onError: (err) => setError(err.message),
   });
 
@@ -50,7 +50,7 @@ function DraftAlbumForm({ id, canWrite }: { id: string; canWrite: boolean }) {
     e.preventDefault();
     setError(null);
     if (!name.trim()) {
-      setError("Give the album a name.");
+      setError("Give the gallery a name.");
       return;
     }
     createMutation.mutate(name.trim());
@@ -122,16 +122,16 @@ function DraftAlbumForm({ id, canWrite }: { id: string; canWrite: boolean }) {
 
 function GalleryCard({
   id,
-  albumId,
+  galleryId,
   slug,
   canWrite,
   initialPreview,
 }: {
   id: string;
-  albumId: string;
+  galleryId: string;
   slug?: string;
   canWrite: boolean;
-  initialPreview?: AlbumPreview;
+  initialPreview?: GalleryPreview;
 }) {
   const { deleteWidget } = useCanvasActions();
   const {
@@ -139,13 +139,13 @@ function GalleryCard({
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["albumPreview", albumId],
-    queryFn: () => getAlbumPreview(albumId),
+    queryKey: ["galleryPreview", galleryId],
+    queryFn: () => getGalleryPreview(galleryId),
     initialData: initialPreview,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => unwrapAction(deleteAlbumAction(albumId)),
+    mutationFn: () => unwrapAction(deleteGalleryAction(galleryId)),
     onSuccess: () => deleteWidget(id),
     onError: (err) => console.error("Failed to delete gallery:", err),
   });
@@ -178,7 +178,7 @@ function GalleryCard({
   return (
     <ContextMenu>
       <ContextMenuTrigger className="block h-full rounded-2xl">
-        <GalleryCardBody preview={preview} slug={slug} albumId={albumId} />
+        <GalleryCardBody preview={preview} slug={slug} galleryId={galleryId} />
       </ContextMenuTrigger>
       <ContextMenuContent>
         {canWrite && (
@@ -246,10 +246,10 @@ function StackCircle({
   showGlyph,
 }: {
   slot: (typeof CIRCLE_SLOTS)[number];
-  image: AlbumImageRow | null;
+  image: GalleryImageRow | null;
   showGlyph: boolean;
 }) {
-  const thumb = image ? albumStackThumbnailUrl(image) : null;
+  const thumb = image ? galleryStackThumbnailUrl(image) : null;
 
   return (
     <div
@@ -273,12 +273,12 @@ function StackCircle({
 
 // Fixed square, independent of any source image's aspect ratio — this is
 // what keeps the widget's footprint constant regardless of what's inside
-// the album (the bug behind #19). Each circle crops its photo via
+// the gallery (the bug behind #19). Each circle crops its photo via
 // object-cover, so nothing stretches the icon to fit a portrait/landscape.
-function PhotoStackIcon({ images }: { images: AlbumImageRow[] }) {
+function PhotoStackIcon({ images }: { images: GalleryImageRow[] }) {
   // Oldest-first so the newest image lands in the front (rightmost, topmost) slot.
   const slotImages = [images[2] ?? null, images[1] ?? null, images[0] ?? null];
-  // Stack depth follows the actual count — a 1-photo album is a single
+  // Stack depth follows the actual count — a 1-photo gallery is a single
   // circle, not a real photo propped in front of empty ones. A fully empty
   // gallery still gets one circle (the front slot) carrying the glyph, so
   // the corner isn't just bare blue.
@@ -288,7 +288,7 @@ function PhotoStackIcon({ images }: { images: AlbumImageRow[] }) {
     <div className="relative aspect-square w-full overflow-hidden rounded-[20%] shadow-lg ring-1 ring-black/10">
       <StackBackdrop />
       {/* Permanent sun badge, top-left corner — part of the icon's fixed
-          identity, on screen regardless of what's in the album. */}
+          identity, on screen regardless of what's in the gallery. */}
       <span className="absolute left-[8%] top-[8%] h-[14%] w-[14%] rounded-full bg-[#fbbf24] shadow-sm" />
       {visible.map((i) => (
         <StackCircle
@@ -305,14 +305,14 @@ function PhotoStackIcon({ images }: { images: AlbumImageRow[] }) {
 function GalleryCardBody({
   preview,
   slug,
-  albumId,
+  galleryId,
 }: {
-  preview: AlbumPreview;
+  preview: GalleryPreview;
   slug?: string;
-  albumId: string;
+  galleryId: string;
 }) {
   const { name, images } = preview;
-  const href = slug ? `/workspace/${slug}/albums/${albumId}` : undefined;
+  const href = slug ? `/workspace/${slug}/gallery/${galleryId}` : undefined;
 
   // Only the icon is a link (and only it is `nodrag`) — the same split
   // BookmarkCard uses between its icon band and its title `<a>`, just

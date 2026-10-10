@@ -1,7 +1,7 @@
-import { attachmentUrl, downloadFileName, pngUrl } from "@/lib/album-file";
+import { attachmentUrl, downloadFileName, pngUrl } from "@/lib/gallery-file";
 import { toastManager } from "@/lib/toast";
 
-/** What these actions need from an album row. */
+/** What these actions need from a gallery row. */
 export interface ActionItem {
   url: string;
   name?: string | null;

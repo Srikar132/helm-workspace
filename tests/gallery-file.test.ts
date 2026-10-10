@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  albumThumbnailUrl,
+  galleryThumbnailUrl,
   attachmentUrl,
-  classifyAlbumFile,
+  classifyGalleryFile,
   classifyDocumentFile,
   DOCUMENT_RESOURCE_TYPE,
   downloadFileName,
@@ -10,7 +10,7 @@ import {
   isDocumentFile,
   pdfThumbnailUrl,
   pngUrl,
-} from "@/lib/album-file";
+} from "@/lib/gallery-file";
 
 describe("downloadFileName", () => {
   it("drops the extension and keeps a plain name", () => {
@@ -103,14 +103,14 @@ describe("classifyDocumentFile", () => {
   });
 });
 
-describe("classifyAlbumFile", () => {
+describe("classifyGalleryFile", () => {
   it("takes photos and documents, and nothing else", () => {
-    expect(classifyAlbumFile({ type: "image/png", name: "shot.png" })).toBe("image");
-    expect(classifyAlbumFile({ type: "application/pdf", name: "spec.pdf" })).toBe("pdf");
-    expect(classifyAlbumFile({ type: "", name: "notes.docx" })).toBe("word");
-    // Video uploads still exist on the canvas, but an album isn't where they go.
-    expect(classifyAlbumFile({ type: "video/mp4", name: "clip.mp4" })).toBeNull();
-    expect(classifyAlbumFile({ type: "application/zip", name: "a.zip" })).toBeNull();
+    expect(classifyGalleryFile({ type: "image/png", name: "shot.png" })).toBe("image");
+    expect(classifyGalleryFile({ type: "application/pdf", name: "spec.pdf" })).toBe("pdf");
+    expect(classifyGalleryFile({ type: "", name: "notes.docx" })).toBe("word");
+    // Video uploads still exist on the canvas, but a gallery isn't where they go.
+    expect(classifyGalleryFile({ type: "video/mp4", name: "clip.mp4" })).toBeNull();
+    expect(classifyGalleryFile({ type: "application/zip", name: "a.zip" })).toBeNull();
   });
 });
 
@@ -151,19 +151,19 @@ describe("pdfThumbnailUrl", () => {
   });
 });
 
-describe("albumThumbnailUrl", () => {
+describe("galleryThumbnailUrl", () => {
   const pdf = "https://res.cloudinary.com/demo/image/upload/v1/spec.pdf";
 
   it("shows a photo as itself and a PDF as its first page", () => {
-    expect(albumThumbnailUrl({ kind: "image", url: "https://res.cloudinary.com/demo/image/upload/v1/a.png" })).toBe(
+    expect(galleryThumbnailUrl({ kind: "image", url: "https://res.cloudinary.com/demo/image/upload/v1/a.png" })).toBe(
       "https://res.cloudinary.com/demo/image/upload/v1/a.png",
     );
-    expect(albumThumbnailUrl({ kind: "pdf", url: pdf })).toContain("f_jpg,pg_1");
+    expect(galleryThumbnailUrl({ kind: "pdf", url: pdf })).toContain("f_jpg,pg_1");
   });
 
   // Nothing Cloudinary can render without the paid conversion add-on, so the
   // tile draws a file-type card instead of a fake preview.
   it("has nothing to show for a Word file", () => {
-    expect(albumThumbnailUrl({ kind: "word", url: "https://res.cloudinary.com/demo/raw/upload/v1/a.docx" })).toBeNull();
+    expect(galleryThumbnailUrl({ kind: "word", url: "https://res.cloudinary.com/demo/raw/upload/v1/a.docx" })).toBeNull();
   });
 });

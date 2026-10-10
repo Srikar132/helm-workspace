@@ -8,7 +8,7 @@ import { getBoardData } from "@/lib/worklog";
 import { rememberLastWorkspace, requireViewerContext } from "@/lib/workspace";
 import { getMyWidgetLayout } from "@/lib/actions/widgets";
 import { getDocProjectsByIds } from "@/lib/actions/docs";
-import { getAlbumPreviewsByIds } from "@/lib/actions/albums";
+import { getGalleryPreviewsByIds } from "@/lib/actions/galleries";
 import { getGmailStatus, getTodayMessages } from "@/lib/actions/gmail";
 import { getLandmarksByIds, getDefaultLandmark } from "@/lib/actions/landmarks";
 import { listCommentThreadsAction } from "@/lib/actions/comments";
@@ -62,9 +62,9 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
     .filter((item) => item.type === "project-doc")
     .map((item) => (item.data as { docProjectId?: unknown } | undefined)?.docProjectId)
     .filter((id): id is string => typeof id === "string");
-  const albumIds = initialLayout
+  const galleryIds = initialLayout
     .filter((item) => item.type === "gallery")
-    .map((item) => (item.data as { albumId?: unknown } | undefined)?.albumId)
+    .map((item) => (item.data as { galleryId?: unknown } | undefined)?.galleryId)
     .filter((id): id is string => typeof id === "string");
   const initialLandmarksIds = initialLayout
     .filter((item) => item.type === "landmark")
@@ -76,14 +76,14 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
   // fetching.
   const [
     initialProjectSummaries,
-    initialAlbumPreviews,
+    initialGalleryPreviews,
     initialLandmarks,
     initialGmailStatus,
     initialDefaultLandmark,
     initialCommentThreads,
   ] = await Promise.all([
     getDocProjectsByIds(projectDocIds),
-    getAlbumPreviewsByIds(albumIds),
+    getGalleryPreviewsByIds(galleryIds),
     getLandmarksByIds(initialLandmarksIds),
     getGmailStatus(),
     getDefaultLandmark(),
@@ -102,7 +102,7 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
       canWrite={canWriteWidgets(viewer.role)}
       initialLayout={initialLayout}
       initialProjectSummaries={initialProjectSummaries}
-      initialAlbumPreviews={initialAlbumPreviews}
+      initialGalleryPreviews={initialGalleryPreviews}
       initialGmailStatus={initialGmailStatus}
       initialGmailMessages={initialGmailMessages}
       initialLandmarks={initialLandmarks}

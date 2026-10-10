@@ -45,7 +45,7 @@ export function WorkspaceDangerZone({ organizationName }: WorkspaceDangerZonePro
         <div className="min-w-0">
           <p className="text-[13.5px] font-medium text-foreground">Delete this workspace</p>
           <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted-foreground">
-            Removes the canvas, board, docs, albums, comments and every member&apos;s access. This can&apos;t be undone.
+            Removes the canvas, board, docs, galleries, comments and every member&apos;s access. This can&apos;t be undone.
           </p>
         </div>
         {!confirmOpen && (
