@@ -175,6 +175,7 @@ const SlashList = forwardRef<SlashListHandle, SlashListProps>(function SlashList
     <div
       role="listbox"
       aria-label="Insert a block"
+      data-widget-floating
       className="z-50 w-60 overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
       onMouseDown={(e) => e.preventDefault()}
     >
