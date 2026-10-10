@@ -180,6 +180,12 @@ export function WidgetNode({ id, data, selected }: NodeProps) {
     }
 
     function handlePointerDown(e: PointerEvent) {
+      const target = e.target as Element | null;
+      // Floating UI a widget owns but portals to <body> (the note's bubble
+      // menu, the `/` and `@` pickers) is outside rootRef in the DOM yet is
+      // still part of the widget — pressing it must not leave editing, or the
+      // control unmounts before its click lands.
+      if (target?.closest?.("[data-widget-floating]")) return;
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         exitToIdle();
       }

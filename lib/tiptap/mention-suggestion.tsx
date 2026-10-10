@@ -100,6 +100,7 @@ const MentionList = forwardRef<MentionListHandle, MentionListProps>(function Men
     <div
       role="listbox"
       aria-label="Mention a teammate"
+      data-widget-floating
       // z above canvas chrome; the popup is appended to <body>.
       className="z-50 min-w-48 max-w-64 overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
       onMouseDown={(e) => e.preventDefault()}

@@ -69,6 +69,7 @@ export function NoteBubbleMenu({ editor }: { editor: Editor }) {
       <div
         // Keep the editor's selection when a button is pressed.
         onMouseDown={(e) => e.preventDefault()}
+        data-widget-floating
         className="flex max-w-[calc(100vw-1rem)] flex-wrap items-center gap-1 rounded-2xl border border-white/[0.08] bg-[#131314]/95 px-2.5 py-1.5 shadow-2xl backdrop-blur-md"
       >
         <MarkButton title="Bold" onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")}>
