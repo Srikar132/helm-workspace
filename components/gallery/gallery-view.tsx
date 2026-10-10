@@ -18,27 +18,27 @@ import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
-  createAlbumGroup,
-  deleteAlbumGroup,
-  getAlbumImages,
-  renameAlbumAction,
-  renameAlbumGroup,
-  type AlbumGroupRow,
-  type AlbumImageRow,
-  type AlbumImagesPage,
-  type AlbumRow,
-} from "@/lib/actions/albums";
+  createGalleryGroup,
+  deleteGalleryGroup,
+  getGalleryImages,
+  renameGalleryAction,
+  renameGalleryGroup,
+  type GalleryGroupRow,
+  type GalleryImageRow,
+  type GalleryImagesPage,
+  type GalleryRow,
+} from "@/lib/actions/galleries";
 import { unwrapAction } from "@/lib/query-utils";
-import { AlbumGrid } from "@/components/albums/album-grid";
-import { downloadItem } from "@/components/albums/image-actions";
-import { UploadDropzone } from "@/components/albums/upload-dropzone";
-import { useAlbumUpload } from "@/components/albums/use-album-upload";
-import { useAlbumImageMutations } from "@/components/albums/use-album-image-mutations";
-import { Lightbox } from "@/components/albums/lightbox";
-import { DocumentViewerOverlay } from "@/components/albums/document-viewer-overlay";
-import { BulkActionBar } from "@/components/albums/bulk-action-bar";
-import { MoveDuplicateDialog } from "@/components/albums/move-duplicate-dialog";
-import { albumThumbnailUrl } from "@/lib/album-file";
+import { GalleryGrid } from "@/components/gallery/gallery-grid";
+import { downloadItem } from "@/components/gallery/image-actions";
+import { UploadDropzone } from "@/components/gallery/upload-dropzone";
+import { useGalleryUpload } from "@/components/gallery/use-gallery-upload";
+import { useGalleryImageMutations } from "@/components/gallery/use-gallery-image-mutations";
+import { Lightbox } from "@/components/gallery/lightbox";
+import { DocumentViewerOverlay } from "@/components/gallery/document-viewer-overlay";
+import { BulkActionBar } from "@/components/gallery/bulk-action-bar";
+import { MoveDuplicateDialog } from "@/components/gallery/move-duplicate-dialog";
+import { galleryThumbnailUrl } from "@/lib/gallery-file";
 
 /** "ungrouped" (the sidebar's built-in row) is a valid drop target that maps
  *  to a real `groupId: null`, distinct from dnd-kit's droppable id string. */
@@ -50,11 +50,11 @@ interface PendingDrop {
   groupName: string;
 }
 
-interface AlbumViewProps {
+interface GalleryViewProps {
   slug: string;
-  album: AlbumRow;
-  initialGroups: AlbumGroupRow[];
-  initialImagesPage: AlbumImagesPage;
+  gallery: GalleryRow;
+  initialGroups: GalleryGroupRow[];
+  initialImagesPage: GalleryImagesPage;
   canWrite: boolean;
 }
 
@@ -68,23 +68,23 @@ function filterToGroupId(filter: Filter): string | null | undefined {
   return filter;
 }
 
-export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWrite }: AlbumViewProps) {
-  const [name, setName] = useState(album.name);
-  const [groups, setGroups] = useState<AlbumGroupRow[]>(initialGroups);
+export function GalleryView({ slug, gallery, initialGroups, initialImagesPage, canWrite }: GalleryViewProps) {
+  const [name, setName] = useState(gallery.name);
+  const [groups, setGroups] = useState<GalleryGroupRow[]>(initialGroups);
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [viewingDocument, setViewingDocument] = useState<AlbumImageRow | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<GalleryImageRow | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
-  const [draggingImage, setDraggingImage] = useState<AlbumImageRow | null>(null);
+  const [draggingImage, setDraggingImage] = useState<GalleryImageRow | null>(null);
 
   const queryClient = useQueryClient();
 
-  // Cached per (album, filter) — switching group tabs and back no longer
+  // Cached per (gallery, filter) — switching group tabs and back no longer
   // refetches a tab that's already been loaded this session. The "all"
   // filter seeds from the server-prefetched first page; any other filter's
   // first visit fetches for real, then is cached same as "all" from then on.
@@ -95,8 +95,8 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ["albumImages", album.id, filter],
-    queryFn: ({ pageParam }) => getAlbumImages(album.id, { groupId: filterToGroupId(filter), cursor: pageParam }),
+    queryKey: ["galleryImages", gallery.id, filter],
+    queryFn: ({ pageParam }) => getGalleryImages(gallery.id, { groupId: filterToGroupId(filter), cursor: pageParam }),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialData: filter === "all" ? { pages: [initialImagesPage], pageParams: [null] } : undefined,
@@ -110,7 +110,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
 
   /** A photo opens the lightbox, a PDF the document viewer; a Word file has
    *  nothing in a browser that can render it, so it downloads. */
-  function openItem(item: AlbumImageRow) {
+  function openItem(item: GalleryImageRow) {
     if (item.kind === "image") {
       const index = photos.findIndex((photo) => photo.id === item.id);
       if (index >= 0) setLightboxIndex(index);
@@ -123,37 +123,37 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
     downloadItem(item);
   }
 
-  // The canvas gallery card caches this album's preview (count + latest 3)
+  // The canvas gallery card caches this gallery's preview (count + latest 3)
   // under this same key — now that the QueryClient is shared across route
   // navigation (see app/providers.tsx) instead of being torn down on every
   // nav, a long-lived cache entry would otherwise show a stale count/thumbs
   // after editing here and going back to the canvas. Invalidating the
-  // images query with just [albumId] (no filter) matches every filter
+  // images query with just [galleryId] (no filter) matches every filter
   // variant at once — a move/delete can affect more than the tab you're
   // currently looking at (e.g. moving a photo out of the group you're in).
-  function invalidateAlbum() {
-    void queryClient.invalidateQueries({ queryKey: ["albumImages", album.id] });
-    void queryClient.invalidateQueries({ queryKey: ["albumPreview", album.id] });
+  function invalidateGallery() {
+    void queryClient.invalidateQueries({ queryKey: ["galleryImages", gallery.id] });
+    void queryClient.invalidateQueries({ queryKey: ["galleryPreview", gallery.id] });
   }
 
-  const renameAlbumMutation = useMutation({
-    mutationFn: (value: string) => unwrapAction(renameAlbumAction(album.id, value)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["albumPreview", album.id] }),
-    onError: (err) => console.error("Failed to rename album:", err),
+  const renameGalleryMutation = useMutation({
+    mutationFn: (value: string) => unwrapAction(renameGalleryAction(gallery.id, value)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["galleryPreview", gallery.id] }),
+    onError: (err) => console.error("Failed to rename gallery:", err),
   });
 
   const nameSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function handleNameChange(value: string) {
     setName(value);
     if (nameSaveTimer.current) clearTimeout(nameSaveTimer.current);
-    nameSaveTimer.current = setTimeout(() => renameAlbumMutation.mutate(value), 600);
+    nameSaveTimer.current = setTimeout(() => renameGalleryMutation.mutate(value), 600);
   }
 
   const createGroupMutation = useMutation({
-    mutationFn: (groupName: string) => unwrapAction(createAlbumGroup(album.id, groupName)),
+    mutationFn: (groupName: string) => unwrapAction(createGalleryGroup(gallery.id, groupName)),
     onSuccess: (res, groupName) => {
       if (res.id) {
-        setGroups((prev) => [...prev, { id: res.id!, albumId: album.id, name: groupName, position: prev.length, createdAt: new Date() }]);
+        setGroups((prev) => [...prev, { id: res.id!, galleryId: gallery.id, name: groupName, position: prev.length, createdAt: new Date() }]);
         setNewGroupName("");
       }
     },
@@ -168,7 +168,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
   }
 
   const renameGroupMutation = useMutation({
-    mutationFn: (input: { id: string; name: string }) => unwrapAction(renameAlbumGroup(input.id, album.id, input.name)),
+    mutationFn: (input: { id: string; name: string }) => unwrapAction(renameGalleryGroup(input.id, gallery.id, input.name)),
     onError: (err) => console.error("Failed to rename group:", err),
   });
 
@@ -178,8 +178,8 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
   }
 
   const deleteGroupMutation = useMutation({
-    mutationFn: (id: string) => unwrapAction(deleteAlbumGroup(id, album.id)),
-    onSuccess: invalidateAlbum,
+    mutationFn: (id: string) => unwrapAction(deleteGalleryGroup(id, gallery.id)),
+    onSuccess: invalidateGallery,
     onError: (err) => console.error("Failed to delete group:", err),
   });
 
@@ -200,7 +200,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
   }
 
   function handleUploaded() {
-    invalidateAlbum();
+    invalidateGallery();
   }
 
   function selectFilter(next: Filter) {
@@ -214,7 +214,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
     setSelectedIds(new Set());
   }
 
-  const { uploadFiles, pending, dismissPending } = useAlbumUpload(album.id, filterToGroupId(filter) ?? null, handleUploaded);
+  const { uploadFiles, pending, dismissPending } = useGalleryUpload(gallery.id, filterToGroupId(filter) ?? null, handleUploaded);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -222,7 +222,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
     if (e.dataTransfer.files?.length) uploadFiles(e.dataTransfer.files);
   }
 
-  const { move, duplicate, bulkMove } = useAlbumImageMutations(invalidateAlbum);
+  const { move, duplicate, bulkMove } = useGalleryImageMutations(invalidateGallery);
 
   // No PointerSensor: `pointerdown` fires before `touchstart`, so on a phone
   // it always won and activated after a few px of movement, grabbing the tile
@@ -291,7 +291,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
 
   return (
     <DndContext
-      id="album-view"
+      id="gallery-view"
       sensors={canWrite ? dragSensors : noSensors}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -321,7 +321,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
           value={name}
           onChange={(e) => handleNameChange(e.target.value)}
           disabled={!canWrite}
-          placeholder="Untitled album"
+          placeholder="Untitled gallery"
           className="min-w-0 flex-1 truncate rounded-lg bg-transparent px-1.5 -mx-1.5 text-[13.5px] font-semibold text-foreground outline-none transition-colors disabled:cursor-default enabled:hover:bg-white/[0.04] focus:bg-white/[0.06] sm:flex-none sm:text-[14px]"
         />
         <span className="flex items-center gap-1 rounded-full bg-white/[0.04] px-2.5 py-1 text-[11.5px] text-muted-foreground">
@@ -426,7 +426,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
           onDragOver={(e) => canWrite && e.preventDefault()}
           onDrop={handleDrop}
         >
-          <AlbumGrid
+          <GalleryGrid
             items={items}
             pendingUploads={pending}
             onDismissPending={dismissPending}
@@ -438,7 +438,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
             loadingMore={isFetchingNextPage}
             onLoadMore={() => void fetchNextPage()}
             groups={groups}
-            onRefresh={invalidateAlbum}
+            onRefresh={invalidateGallery}
             isSwitching={isLoading}
             selectionMode={selectionMode}
           />
@@ -451,7 +451,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
           items={items}
           groups={groups}
           onClear={() => setSelectedIds(new Set())}
-          onDone={invalidateAlbum}
+          onDone={invalidateGallery}
         />
       )}
 
@@ -463,7 +463,7 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
           canWrite={canWrite}
           onClose={() => setLightboxIndex(null)}
           onIndexChange={setLightboxIndex}
-          onChanged={invalidateAlbum}
+          onChanged={invalidateGallery}
         />
       )}
 
@@ -493,9 +493,9 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
         <DragOverlay dropAnimation={null}>
           {draggingImage ? (
             <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border-2 border-primary bg-card shadow-2xl">
-              {albumThumbnailUrl(draggingImage) ? (
+              {galleryThumbnailUrl(draggingImage) ? (
                 // eslint-disable-next-line @next/next/no-img-element -- arbitrary external Cloudinary domain
-                <img src={albumThumbnailUrl(draggingImage)!} alt="" className="h-full w-full object-cover" />
+                <img src={galleryThumbnailUrl(draggingImage)!} alt="" className="h-full w-full object-cover" />
               ) : (
                 <FileText className="h-7 w-7 text-[#8ab4f8]" />
               )}
@@ -557,7 +557,7 @@ function GroupRow({
   onDelete,
   isDropTarget,
 }: {
-  group: AlbumGroupRow;
+  group: GalleryGroupRow;
   active: boolean;
   canWrite: boolean;
   onClick: () => void;

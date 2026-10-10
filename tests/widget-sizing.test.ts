@@ -17,7 +17,7 @@ const CTX: WidgetNodeContext = {
   canWrite: true,
   slug: "desk",
   initialProjectSummaries: {},
-  initialAlbumPreviews: {},
+  initialGalleryPreviews: {},
   initialGmailStatus: { connected: false },
 };
 

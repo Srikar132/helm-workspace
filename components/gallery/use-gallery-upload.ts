@@ -2,24 +2,24 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { addItemToAlbum, type AlbumImageRow } from "@/lib/actions/albums";
+import { addItemToGallery, type GalleryImageRow } from "@/lib/actions/galleries";
 import { unwrapAction } from "@/lib/query-utils";
 import { toastManager } from "@/lib/toast";
 import { uploadToCloudinary } from "@/lib/upload-client";
-import { ALBUM_TYPE_ERROR, classifyAlbumFile } from "@/lib/album-file";
+import { GALLERY_TYPE_ERROR, classifyGalleryFile } from "@/lib/gallery-file";
 
 export type PendingUpload = { id: string; name: string; progress: number; error?: string };
 
 /** Uploads straight to Cloudinary (see lib/upload-client.ts — no file bytes
- *  proxied through our server), then attaches the result to this album/group.
+ *  proxied through our server), then attaches the result to this gallery/group.
  *  Exposes per-file progress/error so the grid can render a real placeholder
  *  tile instead of uploads happening invisibly in the background. */
-export function useAlbumUpload(albumId: string, groupId: string | null, onUploaded: (image: AlbumImageRow) => void) {
+export function useGalleryUpload(galleryId: string, groupId: string | null, onUploaded: (image: GalleryImageRow) => void) {
   const [pending, setPending] = useState<PendingUpload[]>([]);
   const nextId = useRef(0);
 
   const attachMutation = useMutation({
-    mutationFn: (input: Parameters<typeof addItemToAlbum>[0]) => unwrapAction(addItemToAlbum(input)),
+    mutationFn: (input: Parameters<typeof addItemToGallery>[0]) => unwrapAction(addItemToGallery(input)),
   });
 
   function uploadOne(file: File, kind: "image" | "pdf" | "word") {
@@ -36,7 +36,7 @@ export function useAlbumUpload(albumId: string, groupId: string | null, onUpload
         const name = kind === "image" ? undefined : file.name;
         attachMutation.mutate(
           {
-            albumId,
+            galleryId,
             url: result.url,
             width: result.width,
             height: result.height,
@@ -53,7 +53,7 @@ export function useAlbumUpload(albumId: string, groupId: string | null, onUpload
               if (res.id) {
                 onUploaded({
                   id: res.id,
-                  albumId,
+                  galleryId,
                   groupId,
                   url: result.url,
                   width: result.width ?? null,
@@ -84,11 +84,11 @@ export function useAlbumUpload(albumId: string, groupId: string | null, onUpload
 
   function uploadFiles(files: FileList | File[]) {
     for (const file of Array.from(files)) {
-      const kind = classifyAlbumFile(file);
+      const kind = classifyGalleryFile(file);
       // A rejected file says so — silently dropping it (what the photos-only
       // version did) looks like an upload that vanished.
       if (!kind) {
-        toastManager.add({ title: `${file.name} can't go here`, description: ALBUM_TYPE_ERROR, type: "error" });
+        toastManager.add({ title: `${file.name} can't go here`, description: GALLERY_TYPE_ERROR, type: "error" });
         continue;
       }
       uploadOne(file, kind);

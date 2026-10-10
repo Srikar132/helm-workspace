@@ -1,4 +1,4 @@
-import { ALBUM_TYPE_ERROR, classifyDocumentFile, DOCUMENT_RESOURCE_TYPE } from "@/lib/album-file";
+import { GALLERY_TYPE_ERROR, classifyDocumentFile, DOCUMENT_RESOURCE_TYPE } from "@/lib/gallery-file";
 
 export type UploadResourceType = "image" | "video" | "raw";
 
@@ -48,7 +48,7 @@ export async function uploadToCloudinary(
 ): Promise<CloudinaryUploadResult> {
   const resourceType = resolveResourceType(file);
   if (!resourceType) {
-    throw new Error(`Only images, videos and documents are supported. ${ALBUM_TYPE_ERROR}`);
+    throw new Error(`Only images, videos and documents are supported. ${GALLERY_TYPE_ERROR}`);
   }
   if (file.size > MAX_BYTES) throw new Error("File is too large (max 25MB).");
 

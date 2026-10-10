@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { ALBUM_ACCEPT } from "@/lib/album-file";
+import { GALLERY_ACCEPT } from "@/lib/gallery-file";
 
 interface UploadDropzoneProps {
   uploadFiles: (files: FileList | File[]) => void;
@@ -11,7 +11,7 @@ interface UploadDropzoneProps {
 }
 
 /** Just the click-to-pick trigger — the actual upload function is owned by
- *  useAlbumUpload in AlbumView so the same upload path also backs
+ *  useGalleryUpload in GalleryView so the same upload path also backs
  *  drag-and-drop onto the grid, not just this button. */
 export function UploadDropzone({ uploadFiles, className, children }: UploadDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -24,7 +24,7 @@ export function UploadDropzone({ uploadFiles, className, children }: UploadDropz
       <input
         ref={inputRef}
         type="file"
-        accept={ALBUM_ACCEPT}
+        accept={GALLERY_ACCEPT}
         multiple
         className="hidden"
         onChange={(e) => {

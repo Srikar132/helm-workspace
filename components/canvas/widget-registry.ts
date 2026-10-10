@@ -3,7 +3,7 @@ import type { WidgetNodeData } from "@/components/canvas/widget-node";
 import { type WidgetLayoutItem } from "@/lib/db";
 import type { BoardColumn } from "@/lib/worklog";
 import type { DocProjectSummary } from "@/lib/actions/docs";
-import type { AlbumPreview } from "@/lib/actions/albums";
+import type { GalleryPreview } from "@/lib/actions/galleries";
 import type { GmailStatus } from "@/lib/actions/gmail";
 import type { GmailMessageSummary } from "@/lib/gmail";
 import type { Landmark } from "@/lib/actions/landmarks";
@@ -67,7 +67,7 @@ export type WidgetNodeContext = {
   canWrite: boolean;
   slug: string;
   initialProjectSummaries: Record<string, DocProjectSummary>;
-  initialAlbumPreviews: Record<string, AlbumPreview>;
+  initialGalleryPreviews: Record<string, GalleryPreview>;
   initialGmailStatus: GmailStatus;
   initialGmailMessages?: GmailMessageSummary[];
   /** Server-prefetched landmarks, keyed by landmark id — same batching
@@ -110,7 +110,7 @@ export function buildNode(item: WidgetLayoutItem, ctx: WidgetNodeContext): Node 
   const { width, height } = storedSize(item.type, item.width, item.height);
 
   const docProjectId = item.type === "project-doc" ? (item.data?.docProjectId as string | undefined) : undefined;
-  const albumId = item.type === "gallery" ? (item.data?.albumId as string | undefined) : undefined;
+  const galleryId = item.type === "gallery" ? (item.data?.galleryId as string | undefined) : undefined;
   const landmarkId = item.type === "landmark" ? (item.data?.landmarkId as string | undefined) : undefined;
 
   const data: WidgetNodeData = {
@@ -124,7 +124,7 @@ export function buildNode(item: WidgetLayoutItem, ctx: WidgetNodeContext): Node 
     // (lib/query-keys.ts).
     slug: ctx.slug,
     initialSummary: docProjectId ? ctx.initialProjectSummaries[docProjectId] : undefined,
-    initialPreview: albumId ? ctx.initialAlbumPreviews[albumId] : undefined,
+    initialPreview: galleryId ? ctx.initialGalleryPreviews[galleryId] : undefined,
     initialGmailStatus: item.type === "mail-summary" ? ctx.initialGmailStatus : undefined,
     initialGmailMessages: item.type === "mail-summary" ? ctx.initialGmailMessages : undefined,
     initialLandmark: landmarkId ? ctx.initialLandmarks?.[landmarkId] : undefined,

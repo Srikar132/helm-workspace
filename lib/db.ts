@@ -174,8 +174,8 @@ export const docPages = pgTable(
   (table) => [index("doc_pages_doc_project_id_idx").on(table.docProjectId)],
 );
 
-export const albums = pgTable(
-  "albums",
+export const galleries = pgTable(
+  "galleries",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     organizationId: text("organization_id")
@@ -186,33 +186,33 @@ export const albums = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => [index("albums_organization_id_idx").on(table.organizationId)],
+  (table) => [index("galleries_organization_id_idx").on(table.organizationId)],
 );
 
-export const albumGroups = pgTable(
-  "album_groups",
+export const galleryGroups = pgTable(
+  "gallery_groups",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    albumId: uuid("album_id")
+    galleryId: uuid("gallery_id")
       .notNull()
-      .references(() => albums.id, { onDelete: "cascade" }),
+      .references(() => galleries.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     position: integer("position").notNull().default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [index("album_groups_album_id_idx").on(table.albumId)],
+  (table) => [index("gallery_groups_gallery_id_idx").on(table.galleryId)],
 );
 
-export const albumImages = pgTable(
-  "album_images",
+export const galleryImages = pgTable(
+  "gallery_images",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    albumId: uuid("album_id")
+    galleryId: uuid("gallery_id")
       .notNull()
-      .references(() => albums.id, { onDelete: "cascade" }),
+      .references(() => galleries.id, { onDelete: "cascade" }),
     // Null = ungrouped — deleting a group falls its images back here rather
     // than deleting them (see onDelete: "set null").
-    groupId: uuid("group_id").references(() => albumGroups.id, { onDelete: "set null" }),
+    groupId: uuid("group_id").references(() => galleryGroups.id, { onDelete: "set null" }),
     url: text("url").notNull(),
     // Null for a document — only a photo has pixel dimensions.
     width: integer("width"),
@@ -220,7 +220,7 @@ export const albumImages = pgTable(
     name: text("name"),
     // "image" | "pdf" | "word" — drives the tile's preview and whether a click
     // opens the lightbox, the PDF viewer, or a download. Plain text on purpose,
-    // like entries.workType: the list lives in lib/album-file.ts, so a new kind
+    // like entries.workType: the list lives in lib/gallery-file.ts, so a new kind
     // is a code change rather than a migration.
     kind: text("kind").notNull().default("image"),
     // Which Cloudinary resource type actually holds it: a photo and a PDF are
@@ -239,8 +239,8 @@ export const albumImages = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("album_images_album_id_created_at_idx").on(table.albumId, table.createdAt),
-    index("album_images_album_id_group_id_idx").on(table.albumId, table.groupId),
+    index("gallery_images_gallery_id_created_at_idx").on(table.galleryId, table.createdAt),
+    index("gallery_images_gallery_id_group_id_idx").on(table.galleryId, table.groupId),
   ],
 );
 
@@ -249,7 +249,7 @@ export const cloudinaryCleanupStatusEnum = pgEnum("cloudinary_cleanup_status", [
 // Durable record of "this Cloudinary asset needs to be destroyed" — created
 // synchronously in the same request that deletes the owning DB row, so the
 // cleanup survives even if the best-effort after() attempt (see
-// lib/actions/albums.ts) never runs (frozen function, Cloudinary outage,
+// lib/actions/galleries.ts) never runs (frozen function, Cloudinary outage,
 // etc). The cron sweep (app/api/cron/cloudinary-cleanup/route.ts) is what
 // actually guarantees delivery, not the after() call.
 export const cloudinaryCleanupJobs = pgTable(
@@ -440,9 +440,9 @@ export const db = drizzle(sql, {
     widgets,
     docProjects,
     docPages,
-    albums,
-    albumGroups,
-    albumImages,
+    galleries,
+    galleryGroups,
+    galleryImages,
     cloudinaryCleanupJobs,
     landmarks,
     notifications,
