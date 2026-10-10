@@ -127,3 +127,53 @@ export function albumStackThumbnailUrl(item: { kind: string; url: string }): str
 export function documentLabel(kind: string): string {
   return kind === "word" ? "Word" : "PDF";
 }
+
+const UPLOAD_MARKER = "/upload/";
+
+/**
+ * File name safe to put inside a Cloudinary `fl_attachment:<name>` segment.
+ *
+ * The segment is parsed by Cloudinary, so a name carrying `/`, `,`, `?`, `#`
+ * or `%` would either end the transformation early or inject another one.
+ * Only ASCII word characters survive; the extension is dropped because
+ * Cloudinary appends the delivered format's own.
+ */
+export function downloadFileName(item: { name?: string | null; kind: string }): string {
+  const fallback = item.kind === "image" ? "image" : item.kind === "video" ? "video" : "document";
+  const base = (item.name ?? "").trim().replace(/\.[A-Za-z0-9]{1,5}$/, "");
+  const safe = base
+    .replace(/[^A-Za-z0-9_-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+  return safe || fallback;
+}
+
+/**
+ * URL that makes the browser DOWNLOAD the asset instead of opening it.
+ *
+ * `<a download>` is ignored for cross-origin URLs, so the header has to come
+ * from the server: Cloudinary's `fl_attachment` flag answers with
+ * `Content-Disposition: attachment`. That needs no CORS, streams without
+ * loading the file into memory and works on iOS Safari. Word files are `raw`
+ * assets whose public id already carries the extension, so they get the bare
+ * flag and keep their own name. A URL with no `/upload/` segment is returned
+ * unchanged.
+ */
+export function attachmentUrl(item: { url: string; name?: string | null; kind: string }): string {
+  const at = item.url.indexOf(UPLOAD_MARKER);
+  if (at === -1) return item.url;
+
+  const head = item.url.slice(0, at + UPLOAD_MARKER.length);
+  const tail = item.url.slice(at + UPLOAD_MARKER.length);
+  const flag = item.kind === "word" ? "fl_attachment" : `fl_attachment:${downloadFileName(item)}`;
+  return `${head}${flag}/${tail}`;
+}
+
+/** The same image as a PNG — the one format every browser's async clipboard
+ *  accepts. Unchanged if the URL isn't a Cloudinary upload URL. */
+export function pngUrl(url: string): string {
+  const at = url.indexOf(UPLOAD_MARKER);
+  if (at === -1) return url;
+  return `${url.slice(0, at + UPLOAD_MARKER.length)}f_png/${url.slice(at + UPLOAD_MARKER.length)}`;
+}

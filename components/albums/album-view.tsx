@@ -4,7 +4,6 @@ import {
   DndContext,
   DragOverlay,
   MouseSensor,
-  PointerSensor,
   TouchSensor,
   useDroppable,
   useSensor,
@@ -30,7 +29,8 @@ import {
   type AlbumRow,
 } from "@/lib/actions/albums";
 import { unwrapAction } from "@/lib/query-utils";
-import { AlbumGrid, downloadItem } from "@/components/albums/album-grid";
+import { AlbumGrid } from "@/components/albums/album-grid";
+import { downloadItem } from "@/components/albums/image-actions";
 import { UploadDropzone } from "@/components/albums/upload-dropzone";
 import { useAlbumUpload } from "@/components/albums/use-album-upload";
 import { useAlbumImageMutations } from "@/components/albums/use-album-image-mutations";
@@ -224,16 +224,24 @@ export function AlbumView({ slug, album, initialGroups, initialImagesPage, canWr
 
   const { move, duplicate, bulkMove } = useAlbumImageMutations(invalidateAlbum);
 
+  // No PointerSensor: `pointerdown` fires before `touchstart`, so on a phone
+  // it always won and activated after a few px of movement, grabbing the tile
+  // out from under an ordinary scroll swipe. Mouse keeps its 5px threshold;
+  // touch needs a deliberate press-and-hold, and a swipe moves further than
+  // `tolerance` before the delay elapses, which cancels the drag and leaves
+  // the browser free to scroll.
   const dragSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 350, tolerance: 8 } }),
   );
   const noSensors = useSensors();
 
   function handleDragStart(event: DragStartEvent) {
     const imageId = event.active.data.current?.imageId as string | undefined;
     setDraggingImage(items.find((item) => item.id === imageId) ?? null);
+    // Tells a touch user the hold registered (Android; iOS has no API and
+    // this is a harmless no-op there). The lifted DragOverlay is the visual.
+    if (typeof navigator !== "undefined") navigator.vibrate?.(12);
     // The group sidebar (the only drop targets) is hidden behind a toggle on
     // mobile — without this, a drag on a narrow screen has nowhere to land.
     setSidebarOpen(true);
