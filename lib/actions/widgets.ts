@@ -46,7 +46,7 @@ function rowToItem(row: { id: string; type: string; x: number; y: number; width:
 const MISSING_WIDGET_ERROR = "That widget no longer exists — reload to get back in sync.";
 
 /** The canvas belongs to the WORKSPACE, not to whoever created each widget:
- *  albums and doc projects were already org-scoped, and a member who can see
+ *  galleries and doc projects were already org-scoped, and a member who can see
  *  the workspace should see the same desk as everyone else in it. Scoping these
  *  writes by userId instead used to double as the permission check — now that
  *  it doesn't, every mutation below checks `canWriteWidgets` explicitly. A
@@ -293,7 +293,7 @@ export async function deleteWidgetAction(id: string): Promise<{ error?: string }
   // uploads later) records its Cloudinary public id in its own data. Deleting
   // only the row would leave the asset billable and reachable by URL forever,
   // so it goes through the same durable job + immediate best-effort pass the
-  // album images use — the cron sweep is what actually guarantees delivery.
+  // gallery images use — the cron sweep is what actually guarantees delivery.
   const publicId = (existing.data as { cloudinaryPublicId?: unknown } | null)?.cloudinaryPublicId;
   if (typeof publicId === "string" && publicId) {
     const jobs = await enqueueCloudinaryCleanup([publicId]);

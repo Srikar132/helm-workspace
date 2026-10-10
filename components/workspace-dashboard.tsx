@@ -5,7 +5,7 @@ import { CanvasChrome } from "@/components/canvas/canvas-chrome";
 import type { BoardColumn } from "@/lib/worklog";
 import type { WidgetLayoutItem } from "@/lib/db";
 import type { DocProjectSummary } from "@/lib/actions/docs";
-import type { AlbumPreview } from "@/lib/actions/albums";
+import type { GalleryPreview } from "@/lib/actions/galleries";
 import type { GmailStatus } from "@/lib/actions/gmail";
 import type { GmailMessageSummary } from "@/lib/gmail";
 import { Landmark } from "@/lib/actions/landmarks";
@@ -26,7 +26,7 @@ interface WorkspaceDashboardProps {
   canWrite: boolean;
   initialLayout: WidgetLayoutItem[];
   initialProjectSummaries: Record<string, DocProjectSummary>;
-  initialAlbumPreviews: Record<string, AlbumPreview>;
+  initialGalleryPreviews: Record<string, GalleryPreview>;
   initialGmailStatus: GmailStatus;
   initialGmailMessages?: GmailMessageSummary[];
   initialLandmarks: Record<string, Landmark>;
@@ -38,7 +38,7 @@ interface WorkspaceDashboardProps {
 // The QueryClient itself lives at the root layout (app/providers.tsx) —
 // scoped here, it got torn down and rebuilt on every client-side nav away
 // from and back to the canvas, wiping the whole cache each time. Query keys
-// (["docProject", id], ["albumPreview", id], ...) are already unique by
+// (["docProject", id], ["galleryPreview", id], ...) are already unique by
 // UUID, so sharing one client across workspace switches doesn't risk any
 // cross-workspace bleed.
 export function WorkspaceDashboard({
@@ -47,7 +47,7 @@ export function WorkspaceDashboard({
   canWrite,
   initialLayout,
   initialProjectSummaries,
-  initialAlbumPreviews,
+  initialGalleryPreviews,
   initialGmailStatus,
   initialGmailMessages,
   initialLandmarks,
@@ -62,7 +62,7 @@ export function WorkspaceDashboard({
         columns={columns}
         canWrite={canWrite}
         initialProjectSummaries={initialProjectSummaries}
-        initialAlbumPreviews={initialAlbumPreviews}
+        initialGalleryPreviews={initialGalleryPreviews}
         initialGmailStatus={initialGmailStatus}
         initialGmailMessages={initialGmailMessages}
         initialLandmarks={initialLandmarks}

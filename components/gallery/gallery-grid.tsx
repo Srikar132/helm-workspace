@@ -29,24 +29,24 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { PendingUpload } from "@/components/albums/use-album-upload";
-import { useAlbumImageMutations } from "@/components/albums/use-album-image-mutations";
-import { copyImage, copyLink, downloadItem } from "@/components/albums/image-actions";
-import type { AlbumGroupRow, AlbumImageRow } from "@/lib/actions/albums";
-import { albumThumbnailUrl, documentLabel, formatFileSize } from "@/lib/album-file";
+import type { PendingUpload } from "@/components/gallery/use-gallery-upload";
+import { useGalleryImageMutations } from "@/components/gallery/use-gallery-image-mutations";
+import { copyImage, copyLink, downloadItem } from "@/components/gallery/image-actions";
+import type { GalleryGroupRow, GalleryImageRow } from "@/lib/actions/galleries";
+import { galleryThumbnailUrl, documentLabel, formatFileSize } from "@/lib/gallery-file";
 
-interface AlbumGridProps {
-  items: AlbumImageRow[];
+interface GalleryGridProps {
+  items: GalleryImageRow[];
   pendingUploads: PendingUpload[];
   onDismissPending: (id: string) => void;
   selectedIds: Set<string>;
   canWrite: boolean;
   onToggleSelect: (id: string) => void;
-  onOpen: (item: AlbumImageRow) => void;
+  onOpen: (item: GalleryImageRow) => void;
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
-  groups: AlbumGroupRow[];
+  groups: GalleryGroupRow[];
   onRefresh: () => void;
   /** True while a group-filter switch's fetch is in flight — shows skeleton
    *  tiles instead of a jarring blank grid between filters. */
@@ -56,7 +56,7 @@ interface AlbumGridProps {
   selectionMode: boolean;
 }
 
-export function AlbumGrid({
+export function GalleryGrid({
   items,
   pendingUploads,
   onDismissPending,
@@ -71,7 +71,7 @@ export function AlbumGrid({
   onRefresh,
   isSwitching,
   selectionMode,
-}: AlbumGridProps) {
+}: GalleryGridProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -124,7 +124,7 @@ export function AlbumGrid({
           <PendingTile key={p.id} pending={p} onDismiss={() => onDismissPending(p.id)} />
         ))}
         {items.map((item) => (
-          <AlbumTile
+          <GalleryTile
             key={item.id}
             item={item}
             selected={selectedIds.has(item.id)}
@@ -174,7 +174,7 @@ function PendingTile({ pending, onDismiss }: { pending: PendingUpload; onDismiss
   );
 }
 
-function AlbumTile({
+function GalleryTile({
   item,
   selected,
   selectionActive,
@@ -184,11 +184,11 @@ function AlbumTile({
   onOpen,
   onChanged,
 }: {
-  item: AlbumImageRow;
+  item: GalleryImageRow;
   selected: boolean;
   selectionActive: boolean;
   canWrite: boolean;
-  groups: AlbumGroupRow[];
+  groups: GalleryGroupRow[];
   onToggleSelect: () => void;
   onOpen: () => void;
   onChanged: () => void;
@@ -199,17 +199,17 @@ function AlbumTile({
   // own (delivery disabled, a PDF it refuses to rasterise) — falling back to
   // the file-type card is the difference between a tile and a broken image.
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
-  const { rename, duplicate, remove, move } = useAlbumImageMutations(onChanged);
+  const { rename, duplicate, remove, move } = useGalleryImageMutations(onChanged);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: item.id,
-    data: { type: "album-item", imageId: item.id, groupId: item.groupId },
+    data: { type: "gallery-item", imageId: item.id, groupId: item.groupId },
     // A tap in selection mode toggles the tile; a held finger must not start
     // a drag out from under it.
     disabled: !canWrite || selectionActive,
   });
 
   const isDocument = item.kind !== "image";
-  const thumbnail = thumbnailFailed ? null : albumThumbnailUrl(item);
+  const thumbnail = thumbnailFailed ? null : galleryThumbnailUrl(item);
 
   function handleClick() {
     if (selectionActive) onToggleSelect();
@@ -224,14 +224,14 @@ function AlbumTile({
       whileHover={isDragging ? undefined : { scale: 1.02 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       // No in-place transform here — the tile stays put and just dims. The
-      // actual moving thumbnail is DragOverlay (album-view.tsx), portalled to
+      // actual moving thumbnail is DragOverlay (gallery-view.tsx), portalled to
       // <body> so it isn't clipped by this grid's own overflow-y-auto once
       // dragged past the container edge toward the sidebar.
       //
       // touch-action is `manipulation`, NOT `none`: `none` makes the browser
       // refuse to scroll from any swipe that starts on a tile, which on a
       // phone is nearly every swipe. The touch sensor's long-press delay
-      // (album-view.tsx) is what separates "scroll" from "drag". The callout
+      // (gallery-view.tsx) is what separates "scroll" from "drag". The callout
       // and text selection are off because iOS's own long-press menu
       // would otherwise fight that hold.
       style={{

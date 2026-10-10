@@ -148,6 +148,13 @@
       "when": 1790273458009,
       "tag": "0020_stiff_night_nurse",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791617957415,
+      "tag": "0021_rename_albums_to_galleries",
+      "breakpoints": true
     }
   ]
 }

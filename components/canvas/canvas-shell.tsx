@@ -24,7 +24,7 @@ import type { WidgetNodeContext } from "@/components/canvas/widget-registry";
 import type { WidgetLayoutItem } from "@/lib/db";
 import type { BoardColumn } from "@/lib/worklog";
 import type { DocProjectSummary } from "@/lib/actions/docs";
-import type { AlbumPreview } from "@/lib/actions/albums";
+import type { GalleryPreview } from "@/lib/actions/galleries";
 import type { GmailStatus } from "@/lib/actions/gmail";
 import type { GmailMessageSummary } from "@/lib/gmail";
 import { Landmark } from "@/lib/actions/landmarks";
@@ -43,7 +43,7 @@ interface CanvasShellProps {
   columns: BoardColumn[];
   canWrite: boolean;
   initialProjectSummaries: Record<string, DocProjectSummary>;
-  initialAlbumPreviews: Record<string, AlbumPreview>;
+  initialGalleryPreviews: Record<string, GalleryPreview>;
   initialGmailStatus: GmailStatus;
   initialGmailMessages?: GmailMessageSummary[];
   initialLandmarks: Record<string, Landmark>;
@@ -58,7 +58,7 @@ function CanvasInner({
   columns,
   canWrite,
   initialProjectSummaries,
-  initialAlbumPreviews,
+  initialGalleryPreviews,
   initialGmailStatus,
   initialGmailMessages,
   initialLandmarks,
@@ -71,7 +71,7 @@ function CanvasInner({
       canWrite,
       slug,
       initialProjectSummaries,
-      initialAlbumPreviews,
+      initialGalleryPreviews,
           initialGmailStatus,
       initialGmailMessages,
       initialLandmarks,
@@ -81,7 +81,7 @@ function CanvasInner({
       canWrite,
       slug,
       initialProjectSummaries,
-      initialAlbumPreviews,
+      initialGalleryPreviews,
           initialGmailStatus,
       initialGmailMessages,
       initialLandmarks,

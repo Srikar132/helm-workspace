@@ -4,22 +4,22 @@ import { motion } from "framer-motion";
 import { Download, FolderInput, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { downloadItem } from "@/components/albums/image-actions";
-import { useAlbumImageMutations } from "@/components/albums/use-album-image-mutations";
+import { downloadItem } from "@/components/gallery/image-actions";
+import { useGalleryImageMutations } from "@/components/gallery/use-gallery-image-mutations";
 import { toastManager } from "@/lib/toast";
-import type { AlbumGroupRow, AlbumImageRow } from "@/lib/actions/albums";
+import type { GalleryGroupRow, GalleryImageRow } from "@/lib/actions/galleries";
 
 interface BulkActionBarProps {
   selectedIds: Set<string>;
-  items: AlbumImageRow[];
-  groups: AlbumGroupRow[];
+  items: GalleryImageRow[];
+  groups: GalleryGroupRow[];
   onClear: () => void;
   onDone: () => void;
 }
 
 export function BulkActionBar({ selectedIds, items, groups, onClear, onDone }: BulkActionBarProps) {
   const ids = [...selectedIds];
-  const { bulkDelete, bulkMove } = useAlbumImageMutations(onDone);
+  const { bulkDelete, bulkMove } = useGalleryImageMutations(onDone);
 
   function handleDownload() {
     const selected = items.filter((item) => selectedIds.has(item.id));

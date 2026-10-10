@@ -19,7 +19,7 @@ Helm is one Next.js app that is two products at once:
 1. A **dashboard** — each workspace opens on an infinite pan/zoom canvas of widgets (board, notes, bookmarks, media, galleries, project docs, today's mail, a code card, freehand drawing). Widgets are positioned, resized, and edited by hand and persist per workspace.
 2. An **MCP server** at `/api/mcp` — Claude Desktop, Claude Code, or any MCP client connects over OAuth and logs or queries work entries mid-conversation, scoped to the user's active workspace and gated by their role.
 
-Around those: sign-in with Google/GitHub, workspaces (better-auth organizations), teammate invitations by email, per-workspace task board, Tiptap project documentation with public share links, Cloudinary-backed photo albums, a Gmail-read-only mail summary, and a Monaco/Judge0 code editor in its own window.
+Around those: sign-in with Google/GitHub, workspaces (better-auth organizations), teammate invitations by email, per-workspace task board, Tiptap project documentation with public share links, Cloudinary-backed photo galleries, a Gmail-read-only mail summary, and a Monaco/Judge0 code editor in its own window.
 
 Build what is asked and nothing beyond it. This codebase is dense with deliberate decisions — extending a feature is almost always right, re-architecting one almost always is not.
 
@@ -80,7 +80,7 @@ One Next.js App Router workspace. No separate backend, no separate client app.
 
 - `app/` — routes. Page components are **server components** that authenticate, resolve the active workspace, fetch initial data, and hand it to a client component. `export const dynamic = "force-dynamic"` on anything workspace-scoped.
 - `app/api/` — route handlers for the things a server action cannot be: the MCP server, the OAuth metadata documents, browser `fetch` endpoints for the board and entries, the signed Cloudinary upload, and the Vercel cron sweep.
-- `components/` — client components, grouped by feature (`canvas/`, `board/`, `docs/`, `albums/`, `ide/`, `settings/`, `invitations/`, `auth/`, `ui/`).
+- `components/` — client components, grouped by feature (`canvas/`, `board/`, `docs/`, `gallery/`, `ide/`, `settings/`, `invitations/`, `auth/`, `ui/`).
 - `lib/actions/` — `"use server"` server actions. This is where writes live.
 - `lib/` — shared server and client modules: auth, db schema, permissions, query keys, date helpers, Cloudinary, Gmail, Judge0, rate limiting.
 - `drizzle/migrations/` — generated SQL, applied in order. Never hand-edited.
@@ -118,7 +118,7 @@ Build to these unless the user changes them.
 - **A separate browser window is a separate `QueryClient`.** The IDE window (`/workspace/[slug]/ide/[widgetId]`) cannot invalidate the canvas's cache, so it posts over a BroadcastChannel *after* the write lands, and the receiver treats that as display state it never writes back. This does not violate the one-client rule — that rule is per document.
 - **The board is three fixed status columns**, not a sections table: every entry carries a `status`, and the board is that status grouped. Work types are a plain `text` column driven by `WORK_TYPES` in `lib/constants.ts`, so a new type is a code change, not a migration.
 - **Dates are IST, as `YYYY-MM-DD` strings** (`lib/date.ts`). Entries are dated, not timestamped, and "today" means today in IST for everyone.
-- **Deletes are soft where history matters** (`entries.deletedAt`) and cascade where it does not (album images, doc pages, widgets on workspace delete).
+- **Deletes are soft where history matters** (`entries.deletedAt`) and cascade where it does not (gallery images, doc pages, widgets on workspace delete).
 - **Cloudinary assets are deleted through a durable job row**, not just a best-effort call: the delete writes a `cloudinary_cleanup_jobs` row in the same request, `after()` attempts it immediately, and the daily Vercel cron (`/api/cron/cloudinary-cleanup`) is what actually guarantees delivery.
 - **Uploads never send bytes through our server.** The browser asks `/api/media/upload` for a short-lived signature and uploads straight to Cloudinary (`lib/upload-client.ts`).
 - **Gmail is read-only and per-user**, granted by linking the Google account with the `gmail.readonly` scope from the mail widget itself. Google only issues a refresh token for an offline-access grant with an explicit consent prompt — both are set in `lib/better-auth.ts` and must stay set.
@@ -137,7 +137,7 @@ Schema lives in `lib/db.ts`; auth tables in `lib/auth-schema.ts` (both re-export
 - **`widgets`** — one row per canvas widget: `pk` (true identity), `id` (app-level, unique per organization — pinned defaults like `board-1` reuse the same id across users), `organizationId`, `userId`, `type`, `x`, `y`, `width`, `height` (the stored size is the size; null only on pre-sizing-model rows), and a `data` JSONB for widget-specific state.
 - **`widgetLayouts`** — superseded, unused by app code, kept as a rollback source. Do not read or write it.
 - **`docProjects`** / **`docPages`** — a documentation project (title, description, GitHub/resource links, live link, `shareToken`, `isPublic`) and its ordered pages, each holding Tiptap JSON in `content`.
-- **`albums`** / **`albumGroups`** / **`albumImages`** — a workspace album, its optional groups, and its images (Cloudinary URL plus `cloudinaryPublicId`, which is the only way to delete the real asset). Deleting a group sets its images back to ungrouped rather than deleting them.
+- **`galleries`** / **`galleryGroups`** / **`galleryImages`** — a workspace gallery, its optional groups, and its images (Cloudinary URL plus `cloudinaryPublicId`, which is the only way to delete the real asset). Deleting a group sets its images back to ungrouped rather than deleting them.
 - **`cloudinaryCleanupJobs`** — pending/done/failed destroy jobs with an attempt count, swept by the cron.
 
 Every schema change: `npx drizzle-kit generate`, then `npm run db:migrate`. Never hand-edit an applied migration.
@@ -151,7 +151,7 @@ Widgets are the canvas's whole surface area. Adding or changing one touches a kn
 1. `components/canvas/widget-registry.ts` — register the type (`KNOWN_WIDGET_TYPES`), and declare its behaviour: multi-instance, text-editing, title, and how `buildNode` maps a row to an xyflow node. A type removed from `KNOWN_WIDGET_TYPES` stops rendering without a data migration, because `mergeWithDefaults` filters unknown types out.
 2. `components/canvas/<name>-widget.tsx` — the widget itself. It reads its own persisted state from `widgetData` and writes through `useCanvasActions()`; it does not receive mutation callbacks as props.
 3. `components/canvas/widget-toolbar.tsx` — the drag-to-create entry, if it is user-creatable.
-4. A server action in `lib/actions/` if it owns data of its own (like doc projects or albums), plus its query keys.
+4. A server action in `lib/actions/` if it owns data of its own (like doc projects or galleries), plus its query keys.
 
 Sizing: a widget's stored `width` x `height` IS its size — nothing measures content and nothing infers a size from the type at render time; content that does not fit scrolls inside the card. Defaults, limits (min/max) and `resizable` for each type live in one table, `lib/canvas/widget-sizing.ts`, read by the canvas and clamped again by the server actions. A form that settles into a smaller card sets that size once with `resizeWidget(id, settledSize(type))`. New type = a row in that table.
 
@@ -159,7 +159,7 @@ Rules:
 
 - The widget's persisted state goes in the `data` JSONB of its own row. Nothing about one widget may be written by another widget's save.
 - A widget that owns a text caret must be listed in `TEXT_EDITING_WIDGET_TYPES`, or its drags will fight xyflow.
-- A widget that opens its own route (the IDE, the album view, the docs view) must load its own data server-side, because that URL can be opened cold.
+- A widget that opens its own route (the IDE, the gallery view, the docs view) must load its own data server-side, because that URL can be opened cold.
 - Draw strokes are canvas-space data in a `draw` widget pinned at the origin; the laser pointer is ephemeral and persists nothing.
 
 The types that exist today: `board`, `bookmark`, `code`, `draw`, `gallery`, `mail-summary`, `markdown`, `media`, `project-doc`.
@@ -185,7 +185,7 @@ The types that exist today: `board`, `bookmark`, `code`, `draw`, `gallery`, `mai
 - **Board** — three fixed columns, drag to move a task between them, search and work-type filter, a detail dialog that lazily fetches the full row by id. Board reads go through `/api/board`; the board query key is workspace-scoped (`lib/query-keys.ts`) and is deliberately excluded from cache persistence.
 - **Canvas** — pan/zoom, marquee select, drag to reposition, resize handles where the type allows, paste to create (URL → bookmark, image/video → media, markdown → note), and a mode toolbar (grab, select, draw, laser). Layout persists per widget, debounced.
 - **Docs** — a project with ordered pages, Tiptap editing with tables/tasks/highlight/markdown paste, a page sheet for navigation, and a public share link gated by `isPublic`. Markdown is parsed once, by the editor, never pre-parsed at the paste site.
-- **Albums** — grouped photo grid with infinite scroll by cursor, lightbox, bulk select/move/delete, rename, copy, upload by dropzone straight to Cloudinary. The gallery widget shows a cached preview, so album mutations must invalidate that preview's key.
+- **Galleries** — grouped photo grid with infinite scroll by cursor, lightbox, bulk select/move/delete, rename, copy, upload by dropzone straight to Cloudinary. The gallery widget shows a cached preview, so gallery mutations must invalidate that preview's key.
 - **Mail summary** — today's messages for the signed-in user, a connect prompt when the Gmail scope is missing, and a reader overlay for one message. Never persisted, never cached across reloads.
 - **Code / IDE** — a canvas card that opens a real editor window at its own route: Monaco loaded through the AMD loader from `public/monaco`, four languages, manual mode and AI-assisted mode (a generated problem with test cases), execution on Judge0 with the generated harness protocol from `lib/code-runner/harness.ts`. That protocol's sentinel and delimiter live in one exported function read by both the prompt and the parser; changing it in one place only fails silently.
 - **Workspaces, members, invitations** — create a workspace, switch workspaces, invite by email (view-only), copy an invite link, accept or reject at `/accept-invitation/[id]`, remove a member, rename or delete the workspace with a typed-name confirmation.

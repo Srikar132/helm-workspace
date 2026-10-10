@@ -1,10 +1,10 @@
 export type DocumentKind = "pdf" | "word";
 
-/** What one album row holds. Photos and documents share the album tables
- *  rather than living in two parallel stacks — an album is "the things that
+/** What one gallery row holds. Photos and documents share the gallery tables
+ *  rather than living in two parallel stacks — a gallery is "the things that
  *  belong together", and a spec sheet belongs next to the screenshots of the
  *  thing it specifies. */
-export type AlbumItemKind = "image" | DocumentKind;
+export type GalleryItemKind = "image" | DocumentKind;
 
 /** Cloudinary resource type each document kind is stored under. PDFs go up as
  *  `image` because that is the only resource type Cloudinary will rasterise,
@@ -19,9 +19,9 @@ export const DOCUMENT_RESOURCE_TYPE: Record<DocumentKind, "image" | "raw"> = {
 export const DOCUMENT_ACCEPT =
   ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-export const ALBUM_ACCEPT = `image/*,${DOCUMENT_ACCEPT}`;
+export const GALLERY_ACCEPT = `image/*,${DOCUMENT_ACCEPT}`;
 
-export const ALBUM_TYPE_ERROR = "Only images, PDFs and Word files (.pdf, .doc, .docx) can go here.";
+export const GALLERY_TYPE_ERROR = "Only images, PDFs and Word files (.pdf, .doc, .docx) can go here.";
 
 const WORD_MIME = new Set([
   "application/msword",
@@ -50,8 +50,8 @@ export function isDocumentFile(file: { type: string; name: string }): boolean {
   return classifyDocumentFile(file.type, file.name) !== null;
 }
 
-/** What an album would store this file as, or null if it takes it at all. */
-export function classifyAlbumFile(file: { type: string; name: string }): AlbumItemKind | null {
+/** What a gallery would store this file as, or null if it takes it at all. */
+export function classifyGalleryFile(file: { type: string; name: string }): GalleryItemKind | null {
   if (file.type.startsWith("image/")) return "image";
   return classifyDocumentFile(file.type, file.name);
 }
@@ -92,9 +92,9 @@ export function pdfThumbnailUrl(url: string): string {
   return `${head}f_jpg,pg_1,w_640,q_auto/${jpeg}`;
 }
 
-/** The thumbnail an album tile should show, or null when the kind has none
+/** The thumbnail a gallery tile should show, or null when the kind has none
  *  (Word) — the caller renders a file-type card instead of a fake preview. */
-export function albumThumbnailUrl(item: { kind: string; url: string }): string | null {
+export function galleryThumbnailUrl(item: { kind: string; url: string }): string | null {
   if (item.kind === "image") return item.url;
   if (item.kind === "pdf") return pdfThumbnailUrl(item.url);
   return null;
@@ -105,14 +105,14 @@ export function albumThumbnailUrl(item: { kind: string; url: string }): string |
  * gallery-widget.tsx) — this only ever renders at ~90px, so it asks Cloudinary
  * for a small crop instead of shipping the full-resolution original, but it's
  * still a sharp, real preview: the caller lazy-loads it, it doesn't fake one
- * by blurring it. Null for Word (no thumbnail) same as albumThumbnailUrl.
+ * by blurring it. Null for Word (no thumbnail) same as galleryThumbnailUrl.
  */
-export function albumStackThumbnailUrl(item: { kind: string; url: string }): string | null {
+export function galleryStackThumbnailUrl(item: { kind: string; url: string }): string | null {
   if (item.kind === "word") return null;
 
   const marker = "/upload/";
   const at = item.url.indexOf(marker);
-  if (at === -1) return albumThumbnailUrl(item);
+  if (at === -1) return galleryThumbnailUrl(item);
 
   const head = item.url.slice(0, at + marker.length);
   const tail = item.url.slice(at + marker.length);

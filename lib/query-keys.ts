@@ -9,7 +9,7 @@
  * the server was checking the real one. Only a full reload cleared it, and the
  * cache is persisted to localStorage, so it outlived the tab too.
  *
- * Anything keyed by a globally unique id (an album, a doc project, an entry)
+ * Anything keyed by a globally unique id (a gallery, a doc project, an entry)
  * doesn't need this — the id already identifies the workspace implicitly. Nor
  * does anything per-user rather than per-workspace, like the Gmail queries.
  */
