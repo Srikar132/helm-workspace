@@ -7,7 +7,8 @@ import { createNoteExtensions } from "@/lib/tiptap/note-extensions";
 import { useMentionSuggestion } from "@/lib/tiptap/use-mention-suggestion";
 import { useWidgetChrome } from "@/components/canvas/widget-chrome-context";
 import { useCanvasActions } from "@/components/canvas/canvas-actions-context";
-import { NoteToolbar } from "@/components/canvas/note-toolbar";
+import { NoteBubbleMenu } from "@/components/canvas/note-bubble-menu";
+import { NoteCardChip } from "@/components/canvas/note-card-chip";
 
 const SAVE_DEBOUNCE_MS = 600;
 
@@ -18,9 +19,10 @@ interface MarkdownWidgetProps {
   slug?: string;
 }
 
-/** Chromeless — no header, no grip icon. While entered, pushes its own
- *  formatting toolbar up to WidgetNode via setFloatingToolbar, which renders
- *  it just above this card (outside its clip) — one toolbar per note. */
+/** Chromeless — no header, no grip icon. Text formatting follows the
+ *  selection (NoteBubbleMenu) and the caret (the `/` menu); card-level
+ *  settings go up to WidgetNode via setFloatingToolbar, which renders them
+ *  just above this card (outside its clip) while entered. */
 // Older notes stored the raw Tiptap doc directly as widgetData; notes saved
 // after the card-background feature wrap it as { content, bgColor } instead
 // — detect a raw doc by its "type": "doc" field to stay compatible with both.
@@ -34,9 +36,6 @@ export function MarkdownWidget({ id, initialContent, canWrite, slug }: MarkdownW
   const { editing, enterPoint, setFloatingToolbar } = useWidgetChrome();
   const { updateWidgetData, deleteWidget } = useCanvasActions();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Bumped on every editor transaction so bold/italic/etc. active-state
-  // highlighting in the toolbar follows the live cursor.
-  const [, forceRender] = useState(0);
 
   const wrapped = initialContent && isWrappedData(initialContent) ? initialContent : undefined;
   const initialDoc = wrapped ? wrapped.content : initialContent;
@@ -68,7 +67,6 @@ export function MarkdownWidget({ id, initialContent, canWrite, slug }: MarkdownW
         updateWidgetData(id, { content: editor.getJSON(), bgColor });
       }, SAVE_DEBOUNCE_MS);
     },
-    onTransaction: () => forceRender((n) => n + 1),
   });
 
   const handleBgColorChange = useCallback(
@@ -117,8 +115,7 @@ export function MarkdownWidget({ id, initialContent, canWrite, slug }: MarkdownW
       return;
     }
     setFloatingToolbar(
-      <NoteToolbar
-        editor={editor}
+      <NoteCardChip
         bgColor={bgColor}
         onBgColorChange={handleBgColorChange}
         onDelete={() => deleteWidget(id)}
@@ -135,6 +132,7 @@ export function MarkdownWidget({ id, initialContent, canWrite, slug }: MarkdownW
     // restating them here would just be a second copy of the same rules.
     <div className="h-full min-h-0 flex-1 overflow-y-auto scrollbar-thin px-3 py-2">
       <EditorContent editor={editor} className="prose-note h-full text-[13.5px] text-[#e8eaed]" />
+      {editing && canWrite && <NoteBubbleMenu editor={editor} />}
     </div>
   );
 }

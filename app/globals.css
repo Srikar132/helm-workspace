@@ -563,6 +563,29 @@
   user-select: none;
 }
 
+.prose-note ul[data-type="taskList"] li>label input[type="checkbox"],
+.prose-page ul[data-type="taskList"] li>label input[type="checkbox"] {
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--primary);
+  border-radius: 0.2em;
+}
+
+.prose-note ul[data-type="taskList"] li>label input[type="checkbox"]:focus-visible,
+.prose-page ul[data-type="taskList"] li>label input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* A nested checklist keeps the indent a bullet sub-list gets. */
+.prose-note ul[data-type="taskList"] ul[data-type="taskList"],
+.prose-page ul[data-type="taskList"] ul[data-type="taskList"] {
+  margin-block: 0.15em;
+  padding-left: 1.2em;
+}
+
 .prose-note ul[data-type="taskList"] li>div {
   flex: 1;
 }

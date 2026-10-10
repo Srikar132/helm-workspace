@@ -15,6 +15,8 @@ import { Mention, type MentionOptions } from "@tiptap/extension-mention";
 import type { Extensions } from "@tiptap/core";
 import { FontSize } from "@/lib/tiptap/font-size";
 import { MarkdownPasteHandler } from "@/lib/tiptap/markdown-paste";
+import { SlashMenu } from "@/lib/tiptap/slash-menu";
+import { TaskItemMove } from "@/lib/tiptap/task-item-move";
 
 /**
  * The one extension list behind both editors (the canvas note and the docs
@@ -58,6 +60,9 @@ export function createNoteExtensions({
       HTMLAttributes: { class: "mention" },
       suggestion: mentionSuggestion ?? { items: () => [] },
     }),
+    // `/` block menu and Alt+Up/Down checklist reordering.
+    SlashMenu,
+    TaskItemMove,
     // Markdown parse/serialize. Storage stays ProseMirror JSON — this only
     // engages when a caller explicitly passes contentType: "markdown".
     // breaks: a single newline is a hard break, not a paragraph continuation,
